@@ -1,0 +1,49 @@
+{
+  "schema": "luraph-deobf.a321-lazy-child268.v1",
+  "reachable_from": {
+    "root_block": 1,
+    "selector": 121,
+    "repair_pc": 1226,
+    "repair_opcode": 34,
+    "proto": 268,
+    "xor_key": 144,
+    "dispatch_pc": 1227,
+    "dispatch_opcode": 70,
+    "destination_register": 85
+  },
+  "outer_record": {
+    "z4_encoded_cursor": 263857930,
+    "cursor_xor": 263872163,
+    "resolved_cursor": 31145,
+    "tag_hex": "50",
+    "payload_length": 2271,
+    "payload_start": 31148
+  },
+  "a99": {
+    "seed_in": 268,
+    "plaintext_size": 2271,
+    "plaintext_sha256": "78cf8d146a4ae5ea6ee213bf183ec0fbd586b5bf89d298de1f527ce08c035ad9",
+    "head16_hex": "011d1b0119121516b2c6021e1a171118"
+  },
+  "a321": {
+    "consumes_object_exactly": true,
+    "count": 474,
+    "vm_mode": 215,
+    "entry_pc": 9,
+    "stack_size": 36,
+    "dispatch_id": 68,
+    "meta16": 19,
+    "meta5": 32,
+    "phase4_record_count": 0,
+    "metadata_c_and_table4_key": 28,
+    "fill_offset_delta": 7,
+    "fill_length": 2257,
+    "fill_byte": 116
+  },
+  "runtime_role": {
+    "register": 85,
+    "evidence": "Immediately after pc1227, reachable mode233 repeatedly calls R85(native_builtin, lazy_string_constant).",
+    "interpretation": "R85 is a lazily materialized helper closure/object participating in native-builtin name registration/bootstrap."
+  },
+  "scope_note": "This object is additional to the original runtime-dumped 11 A321 plaintexts; the prior 11-of-11 framing claim remains valid for that captured corpus but is not the full reachable object graph."
+}
