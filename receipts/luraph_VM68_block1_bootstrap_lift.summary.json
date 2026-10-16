@@ -15,7 +15,7 @@
     "mode54 pc33 opcode84 XOR-decrypts slots 85..4441 in all four main lanes",
     "mode54 pc34 rewrites to opcode45 and sets R37=84",
     "mode54 pc35 rewrites to opcode72; semantic boundary R0=R72(R11)",
-    "register provenance proves R72=nil and R11=nil at mode54 pc35"
+    "mode54 pc35 opcode72 jumps base=11; pc12 opcode80 indirects via R37=84 into pc85"
   ],
   "body_decrypt": {
     "mode": 54,
@@ -153,21 +153,30 @@
     ]
   },
   "stop": {
-    "mode": 54,
-    "pc": 35,
-    "rewritten": {
-      "S": 0,
-      "w": 0,
-      "s": 11,
-      "H": 72
+    "status": "superseded",
+    "correction": "Previous nil-call claim was caused by using opcode72 semantics from the wrong VM mode. In mode54, opcode72 is `l=s[l]`."
+  },
+  "continuation": {
+    "pc35": {
+      "mode": 54,
+      "tuple": {
+        "S": 0,
+        "w": 0,
+        "s": 11,
+        "H": 72
+      },
+      "semantic": "l=s[35]=11"
     },
-    "semantic": "R[0] = R[72](R[11])",
-    "register_provenance": {
-      "frame": "table.create(130), initially nil",
-      "R72": "no prior write -> nil",
-      "R11": "pc4469 copies initial R8 before R8 is later assigned -> nil",
-      "varargs": "stored only in R12"
+    "pc12": {
+      "mode": 54,
+      "rewritten": {
+        "S": 0,
+        "w": 37,
+        "s": 0,
+        "H": 80
+      },
+      "semantic": "l=R37=84"
     },
-    "result": "deterministic nil-call failure if the B[68] closure is invoked along this bootstrap path"
+    "next_executed_pc": 85
   }
 }
