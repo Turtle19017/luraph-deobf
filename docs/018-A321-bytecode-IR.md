@@ -219,9 +219,14 @@ and table1/table2/table4 are operand lanes used as `S[pc]`, `w[pc]`, and
 The companion arrays are auxiliary per-slot lanes used by selected opcodes and
 runtime rewriting. Their complete population semantics are not promoted yet.
 
-## Block-1 entry trampoline
+## Block-1 serialized entry-lane checkpoint
 
-The block-1 lane tuples around `entry_pc=4453` are:
+The tuples below are the **serialized lane values** recovered offline. A later
+post-fill helper call `B[3]` may mutate/populate lanes before `B[68]` is
+actually executed, so these values are not promoted to finalized runtime lanes
+until the `AFINAL` snapshot confirms them.
+
+The block-1 serialized lane tuples around `entry_pc=4453` are:
 
 ```text
 pc    S    w      opcode H
@@ -250,7 +255,13 @@ Source semantics for the executed slots are:
 
 ```text
 4453 opcode 52
-  R[12] = current object
+  N = lane_w[4453] = 1
+  p = lane_S[4453] = 12
+  copy the first N-1 varargs into R[p...]
+  R[p+N-1] = table.pack(select(N,...))
+
+  For N=1 this reduces to:
+  R[12] = table.pack(select(1,...))
 
 4454 opcode 39
   bulk move four register pairs
@@ -282,7 +293,7 @@ The four bulk-move groups are:
 96 -> 85    22 -> 86    97 -> 87     8 -> 11
 ```
 
-At pc 11:
+At serialized pc 11:
 
 ```text
 S=46
@@ -291,13 +302,24 @@ opcode=23
 H=74
 ```
 
-Opcode 23 is source-derived as a self-rewrite/decode operation. It rewrites the
-current instruction-lane entries and decrements the program counter so that the
-same slot is executed again after the normal loop increment.
+Opcode 23 is source-derived as a self-rewrite/decode operation. Applying its
+source arithmetic to that **serialized tuple** gives the candidate rewrite:
 
-This explains why raw serialized lanes can contain values that are not valid
-final runtime opcodes or operands: some instruction slots are transformed
-in-place before their semantic operation executes.
+```text
+S      46    -> 0
+w   12326    -> 0
+opcode 23    -> 1
+H      74    -> 37
+```
+
+This candidate is deliberately not promoted to the runtime path yet. State35
+calls a dynamically installed helper `B[3]` during post-fill finalization, and
+the four companion arrays are initially allocated empty. That helper may
+populate or rewrite the execution lanes before `B[68]` returns its closure.
+
+The finalized-lane probe therefore runs after `B:A` has returned and before
+`B[68]` is called. It is the trust boundary for deciding whether the
+serialized tuples above are also the actual runtime entry tuples.
 
 ## Consequence
 
@@ -333,5 +355,7 @@ VMObject {
 }
 ```
 
-The next semantic task is to lift reachable `mode=215` opcodes, beginning with
-the block-1 bootstrap and its self-rewriting pc 11.
+The next semantic task is to compare the finalized runtime lanes against these
+serialized seeds. If they match, lift the reachable `mode=215` path beginning
+at `entry_pc`; if they differ, first model the post-fill `B[3]` lane
+finalization pass.
