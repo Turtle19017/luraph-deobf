@@ -1,0 +1,167 @@
+{
+  "schema": "luraph-deobf.a321-first-int-tables-summary.v1",
+  "block_count": 11,
+  "total_object_bytes": 37590,
+  "total_table_entries": 7950,
+  "table_start": 16,
+  "count_bias": 38764,
+  "invariant_next_serialized_integer": {
+    "value": 215,
+    "width": 2,
+    "encoding_hex": "8157",
+    "all_blocks": true
+  },
+  "blocks": [
+    {
+      "index": 1,
+      "seed_in": 164,
+      "table_count": 4474,
+      "table_end": 4500,
+      "table_encoded_size": 4484,
+      "remaining": 16436,
+      "widths": {
+        "1": 4464,
+        "2": 10
+      },
+      "next": 215
+    },
+    {
+      "index": 2,
+      "seed_in": 325,
+      "table_count": 34,
+      "table_end": 52,
+      "table_encoded_size": 36,
+      "remaining": 134,
+      "widths": {
+        "1": 32,
+        "2": 2
+      },
+      "next": 215
+    },
+    {
+      "index": 3,
+      "seed_in": 229,
+      "table_count": 99,
+      "table_end": 122,
+      "table_encoded_size": 106,
+      "remaining": 340,
+      "widths": {
+        "1": 92,
+        "2": 7
+      },
+      "next": 215
+    },
+    {
+      "index": 4,
+      "seed_in": 129,
+      "table_count": 1516,
+      "table_end": 1950,
+      "table_encoded_size": 1934,
+      "remaining": 5447,
+      "widths": {
+        "1": 1098,
+        "2": 418
+      },
+      "next": 215
+    },
+    {
+      "index": 5,
+      "seed_in": 305,
+      "table_count": 532,
+      "table_end": 682,
+      "table_encoded_size": 666,
+      "remaining": 1797,
+      "widths": {
+        "1": 398,
+        "2": 134
+      },
+      "next": 215
+    },
+    {
+      "index": 6,
+      "seed_in": 339,
+      "table_count": 43,
+      "table_end": 62,
+      "table_encoded_size": 46,
+      "remaining": 169,
+      "widths": {
+        "1": 40,
+        "2": 3
+      },
+      "next": 215
+    },
+    {
+      "index": 7,
+      "seed_in": 347,
+      "table_count": 138,
+      "table_end": 162,
+      "table_encoded_size": 146,
+      "remaining": 478,
+      "widths": {
+        "1": 130,
+        "2": 8
+      },
+      "next": 215
+    },
+    {
+      "index": 8,
+      "seed_in": 281,
+      "table_count": 127,
+      "table_end": 149,
+      "table_encoded_size": 133,
+      "remaining": 429,
+      "widths": {
+        "1": 121,
+        "2": 6
+      },
+      "next": 215
+    },
+    {
+      "index": 9,
+      "seed_in": 187,
+      "table_count": 157,
+      "table_end": 193,
+      "table_encoded_size": 177,
+      "remaining": 545,
+      "widths": {
+        "1": 142,
+        "2": 12,
+        "3": 1,
+        "4": 2
+      },
+      "next": 215
+    },
+    {
+      "index": 10,
+      "seed_in": 283,
+      "table_count": 50,
+      "table_end": 67,
+      "table_encoded_size": 51,
+      "remaining": 183,
+      "widths": {
+        "1": 49,
+        "2": 1
+      },
+      "next": 215
+    },
+    {
+      "index": 11,
+      "seed_in": 211,
+      "table_count": 780,
+      "table_end": 1011,
+      "table_encoded_size": 995,
+      "remaining": 2682,
+      "widths": {
+        "1": 579,
+        "2": 194,
+        "4": 7
+      },
+      "next": 215
+    }
+  ],
+  "trust": {
+    "input_plaintexts": "runtime verified by size+sha256+head16 receipt",
+    "first_table_parser": "source-derived integer grammar",
+    "post_table_215": "observed identically in all 11 parsed objects"
+  }
+}
