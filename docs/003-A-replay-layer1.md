@@ -1,50 +1,37 @@
-# Report 003 — Reachable `B:A` replay and inner LCG-XOR layer
+# Report 003 — First A-layer LCG-XOR block checkpoint
 
-## Strategy
+> **Superseded interpretation:** this report originally treated the first
+> 20,936-byte decode as a complete inner layer and continued along a static
+> successor chain that included `121 → 9 → 438 → 365`. Runtime tracing and
+> direct source mapping later showed that interpretation was wrong. The verified
+> content retained here is the byte-for-byte reconstruction of block #1 only.
+> See `docs/005-multiblock-lcg.md` for the corrected 11-block model.
 
-Instead of translating every branch of `B:A` up front, the analysis follows only the state sequence reachable from the real starting state and records each register shuttle literally.
+## Verified block #1
 
-This reduced the amount of code that needed to be modeled while preserving auditable 1:1 semantics for the executed path.
-
-## Reached entry
-
-The replay reaches prototype/entry index:
+The first observed A-layer LCG-XOR block uses:
 
 ```text
-entry = 164
+seed_in = 164
+seed0   = (164 + 240) % 256 = 148
+size    = 20,936
+src     = 35,915
 ```
 
-with a source pointer around:
+The transform is:
 
 ```text
-z[4][164] = 35911
-```
-
-The encrypted substream begins four bytes later at offset 35915.
-
-## Inner decode
-
-A 20,936-byte substream is decoded by an LCG-XOR loop. After correcting an early register-shuttle mistake, the verified recurrence is:
-
-```text
-seed0 = (164 + 240) mod 256 = 148
-key[n+1] = (155 + 93*key[n]) mod 256
+key[n+1] = (155 + key[n] * 93) % 256
 plain[n] = cipher[n] XOR key[n+1] XOR 240
 ```
 
-Decoded size:
-
-```text
-20,936 bytes
-```
-
-SHA-256:
+The reconstructed plaintext has SHA-256:
 
 ```text
 ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e
 ```
 
-The first 64 decoded bytes are:
+First 64 bytes:
 
 ```text
 01 1a 16 00 18 17 1b 1e d1 e6 02 1c 11 13 12 20
@@ -53,37 +40,41 @@ The first 64 decoded bytes are:
 00 00 2c e9 0e 8c 0e 09 0a 0d 0b 11 3e 07 00
 ```
 
-Its byte entropy drops substantially relative to `stage1.bin`, which is a strong signal that this is a structurally meaningful decoded layer rather than another blind transform.
+Runtime tracing later established that this is **block 1 of 11**, with
+37,590 decoded bytes total across all A99 invocations.
 
-## Reachable path checkpoint
+## Post-block observation
 
-The replayed state path includes:
-
-```text
-245 → 405 → 439 → 300 → 99
-    → 323 ↔ 228 × 20,936
-    → 321 → 145 → 212 → 437 → 283
-    → 277 → 44 → 355 → 114 → 176
-    → 336 → 288 → 149 → 157 → 434
-    → 348 → 317 → 121 → 9 → 438 → 365
-```
-
-## Current divergence
-
-Near `438 → 365`, three bytes in the decoded layer are interpreted as:
+After this block, runtime instrumentation reports:
 
 ```text
-f[8]  = 209
-f[9]  = 230
-f[10] = 2
+[A321] first=1 next=145
 ```
 
-and the modeled handler computes:
+The same `A321 → 145` observation occurs after every one of the eleven blocks.
+
+## Correction to the old successor model
+
+The old model continued:
 
 ```text
-(209-128)*128 + (230-128) + 2*16384 = 43238
+... → 121 → 9 → 438 → 365
 ```
 
-The next state then appears to prepare a byte read at offset `43238` from a buffer whose modeled length is only `20936`.
+That chain is invalid for this build.
 
-That invariant is intentionally not patched or guessed around. A runtime probe is used to determine whether the static register shuttle is still wrong or whether an environment/anti-analysis path is involved.
+Direct source mapping shows:
+
+```text
+B:Z at state 121 → 42
+B:T at state 42  → 48
+```
+
+Therefore the previously reported computed offset `43238` and the resulting
+`43238 > 20936` contradiction are not runtime facts. They were produced by
+following an unreachable static successor chain.
+
+The historical receipt
+`receipts/luraph_A_entry164_layer1.receipt.json` is retained for audit history
+but its successor-path fields are superseded. The corrected block-only tool is
+`tools/luraph15_A_layer1.py`.
