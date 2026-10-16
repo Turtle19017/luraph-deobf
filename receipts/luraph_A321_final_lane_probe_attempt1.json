@@ -1,0 +1,44 @@
+{
+  "schema": "luraph-deobf.a321-final-lane-probe-attempt1.v1",
+  "head": "b225c958d6b6426ef26f02b5db1f958662c2f64b",
+  "status": "probe-inspection-failed-before-entry-marker",
+  "markers": {
+    "AFINALMETA": {
+      "dispatch_key": 31,
+      "dispatch": 68,
+      "pc_key": 18,
+      "pc": 4453,
+      "mode_key": 30,
+      "mode": 215,
+      "stack_key": 21,
+      "stack": 130
+    },
+    "AFINALLEN": {
+      "op_seq": 4474,
+      "S_seq": 4474,
+      "w_seq": 4474,
+      "H_seq": 4474,
+      "av_seq": 0,
+      "aI_seq": 0,
+      "aV_seq": 0,
+      "aK_seq": 0
+    },
+    "AFINALHELPER": {
+      "B3_type": "nil",
+      "B3": "nil"
+    }
+  },
+  "observed_error": "buffer.readu8 received nil offset during probe-side inspection before AFINALENTRY",
+  "source_stack": [
+    "vp",
+    "rW",
+    "J9"
+  ],
+  "conclusions": [
+    "B:A returned successfully with the expected dispatch/mode/entry/stack metadata.",
+    "B[3] is nil at the outer handoff; the outer block1 return path did not execute the state35 -> B[3] branch.",
+    "A # length of zero does not prove auxiliary lane tables are empty; they may be sparse.",
+    "Attempt 1 did not establish finalized lane contents."
+  ],
+  "probe_fix": "Use rawget for lane lookup and never tostring arbitrary table/userdata values, preventing __index/__tostring probe-side metamethod execution."
+}
