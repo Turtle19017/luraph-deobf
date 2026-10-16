@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Create a local runtime probe without committing the protected target.
+"""Build a minimal A-layer census probe for this Luraph v15 sample.
 
-This intentionally requires the analyst's own ``script.txt``.  It inserts five
-logging calls at uniquely identified handlers/states used by the current B:A
-reachable-path investigation and writes a separate instrumented Luau file.
+The protected target remains local. This generator injects only two markers:
 
-Fail-closed: every replacement must occur exactly once or no output is written.
+  [A99]  seed_in, seed0, size, and source-base q/J for every LCG-XOR block
+  [A321] first byte and the common continuation state
+
+Every anchor is sample-specific and fail-closed: exactly one match is required.
 """
 from __future__ import annotations
 
@@ -28,38 +29,32 @@ def main() -> None:
 
     src = args.script.read_text(encoding="utf-8")
 
-    replacements = [
-        (
-            "local u=(A*X+y)%256;B[2](T,C,(B[121](u,177,(B[117](Y,C+z)))));",
-            "local u=(A*X+y)%256;print('[A228]','seed',A,'inc',y,'mult',X,'xor',177,'src',z,'key',u,'cipher',B[117](Y,C+z));B[2](T,C,(B[121](u,177,(B[117](Y,C+z)))));",
-            "A228",
-        ),
-        (
-            "local j,X=r[4],B[117](k,0);local y,A=X<128 and 145 or 410,Y[1];return y,j,Y[2],A,c,{},X,v,J,a;",
-            "local j,X=r[4],B[117](k,0);local y,A=X<128 and 145 or 410,Y[1];print('[A321]','len',buffer.len(k),'first',X,'next',y);return y,j,Y[2],A,c,{},X,v,J,a;",
-            "A321",
-        ),
-        (
-            "local c,X,y=k+(Y+2097152*(c-c%128))+J+Z,4+I,P[1];return 79,P[2],y,X,j,r,z;",
-            "local c,X,y=k+(Y+2097152*(c-c%128))+J+Z,4+I,P[1];print('[A438]','decoded',c,'cursor',X);return 79,P[2],y,X,j,r,z;",
-            "A438",
-        ),
-        (
-            "local c,I,J=Z+(B+r)+(Y+P),4+z,v[1];return 365,v[2],J,I,a,c;",
-            "local c,I,J=Z+(B+r)+(Y+P),4+z,v[1];print('[A365]','offset',c);return 365,v[2],J,I,a,c;",
-            "A365",
-        ),
-    ]
+    q99_old = (
+        "else local z,a,J,k=(I+240)%256,B[15](c),c-1,1+0;"
+        "local B=0-k;local c,I={J+0,k,B,P,nil},r[1];"
+        "return 323,c,r[2],I,z,240,93,155,a,v;"
+    )
+    q99_new = (
+        "else local __seed_in,__size,__src=I,c,J;"
+        "local z,a,J,k=(I+240)%256,B[15](c),c-1,1+0;"
+        "local B=0-k;local c,I={J+0,k,B,P,nil},r[1];"
+        "print('[A99]','seed_in',__seed_in,'seed0',z,'size',__size,'src',__src);"
+        "return 323,c,r[2],I,z,240,93,155,a,v;"
+    )
+    src = replace_once(src, q99_old, q99_new, "A99/B:Q")
 
-    for old, new, label in replacements:
-        src = replace_once(src, old, new, label)
-
-    # A99 is intentionally injected by a wider, target-specific marker because
-    # the handler's register names are shuffled.  Keep the marker small enough
-    # to audit but fail if this sample drifts.
-    old = "local z,X,y,A,T,C=Z+1,93,155,(v+177)%256,B[15](16),0;"
-    new = "local z,X,y,A,T,C=Z+1,93,155,(v+177)%256,B[15](16),0;print('[A99]','src',z,'mult',X,'inc',y,'seed',A);"
-    src = replace_once(src, old, new, "A99")
+    a321_old = (
+        "if z<=321 then local j,X=r[4],B[117](k,0);"
+        "local y,A=X<128 and 145 or 410,Y[1];"
+        "return y,j,Y[2],A,c,{},X,v,J,a;"
+    )
+    a321_new = (
+        "if z<=321 then local j,X=r[4],B[117](k,0);"
+        "local y,A=X<128 and 145 or 410,Y[1];"
+        "print('[A321]','len',buffer.len(k),'first',X,'next',y);"
+        "return y,j,Y[2],A,c,{},X,v,J,a;"
+    )
+    src = replace_once(src, a321_old, a321_new, "A321/B:Zy")
 
     args.out.write_text(src, encoding="utf-8")
     print(f"wrote {args.out}")
