@@ -20,9 +20,12 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 - The current source-supported candidate continuation after each `A321 → 145` is:
   `145 → 212 → 437 → 283 → 314 → 121 → 42 → 48`.
   Conditional branches are being confirmed by the corrected successor trace.
-- The eleven block source offsets can now be derived **fully offline** from
-  `z4[seed_in]` plus the 1/2/3-byte serialized length parser; a new runtime
-  pass is not needed for offset recovery if the J9 handoff artifacts are available.
+- The verified outer J9 `z[7]` buffer is exactly
+  `stage1[1274:1274+79999]`, SHA-256
+  `158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891`.
+- Runtime/source cross-checking proves that this outer `z[7]` is the source for
+  block #1, but **not** a universal source buffer for all eleven A99 decodes.
+  The other ten blocks still require separate source-buffer provenance.
 
 ## Layout
 
@@ -68,23 +71,24 @@ Expected decoded SHA-256:
 108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec
 ```
 
-## Decode all 11 A-layer blocks offline
-
-With the J9 handoff artifacts:
+## Recover the verified outer J9 z[7] and block #1
 
 ```bash
-python tools/derive_lcg_manifest.py \
-  luraph_j9_handoff.json \
-  luraph_j9_z_7.bin \
-  -o luraph_A_lcg_manifest.json
+python tools/recover_j9_z7_slice.py \
+  luraph_stage1.bin \
+  -o luraph_j9_z_7.bin
 
-python tools/extract_lcg_blocks.py \
+python tools/audit_a99_source_buffers.py \
   luraph_j9_z_7.bin \
-  --manifest luraph_A_lcg_manifest.json \
-  --expect-known-sample
+  --json luraph_A99_z7_audit.json
 ```
 
-The second command emits one plaintext file per block, a concatenation in trace order, and a receipt with hashes.
+The audit is intentionally fail-closed for the known sample: only block #1 is
+allowed to match the runtime observation `[A321] first=1` when all eleven
+runtime `srcoff` values are tested against this one outer buffer.
+
+The remaining ten blocks are **not** decoded from this buffer. Their runtime
+source-buffer provenance is still open.
 
 ## Build corrected A-layer probes
 
