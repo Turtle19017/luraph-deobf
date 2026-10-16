@@ -11,18 +11,14 @@
   },
   "micro_handler_count": 73,
   "exact_range_count": 73,
-  "possibly_reachable_from_entry_count": 236,
-  "not_reachable_even_in_static_overapprox": [
-    78,
-    156,
-    169
-  ],
+  "possibly_reachable_from_entry_count": 239,
+  "not_reachable_even_in_static_overapprox": [],
   "terminal_states": [
     83
   ],
   "trust": {
     "state_to_handler": "source-exact",
-    "successor_sets": "source-derived overapproximation; runtime-dependent conditions unioned",
+    "successor_sets": "source-derived overapproximation; runtime-dependent conditions and shadowed state-formal conditions unioned",
     "reachability": "overapproximation from entry state 8"
   },
   "state_table": "receipts/luraph_level3_state_graph.tsv"
