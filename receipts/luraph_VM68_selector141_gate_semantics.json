@@ -1,0 +1,24 @@
+{
+  "schema": "luraph-deobf.vm68-selector141-gate-semantics.v1",
+  "gate_call": {
+    "child_register": 10,
+    "child_seed": 347,
+    "args": [
+      "R2 from coroutine.wrap(child297)",
+      "R121 sentinel"
+    ],
+    "source_sequence": [
+      "R1 = R10",
+      "R1 = R1(R2,R121)",
+      "R1 = not R1"
+    ]
+  },
+  "child347_semantic": "same-key/identity equality probe backed by temporary R113 visited mark",
+  "simplified_gate": "R1 = (R2 ~= R121)",
+  "branch": {
+    "R2 == R121": "R1=false -> cleanup -> re-enter selector141",
+    "R2 ~= R121": "R1=true -> set R88=50 -> selector50 success arm"
+  },
+  "interpretation": "selector141 is a coroutine/sentinel retry loop, not an opaque anti-analysis branch",
+  "next_dependency": "lift child297 (proto297) to determine its yield sequence and the exact iteration on which it diverges from R121"
+}
