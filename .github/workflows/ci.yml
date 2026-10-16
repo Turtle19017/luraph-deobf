@@ -69,3 +69,6 @@ jobs:
           assert src[start:end] == got
           print("ok: sliced", len(got), "chars")
           PY
+
+      - name: Level-3 successor shadowing regression tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
