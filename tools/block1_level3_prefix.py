@@ -43,6 +43,20 @@ def parse_marker(path: Path) -> dict[str, int]:
     return hits[0]
 
 
+def parse_trace_states(path: Path) -> list[int]:
+    states: list[int] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not (line.startswith("[L3CHUNK]") or line.startswith("[L3TAIL]")):
+            continue
+        m = re.search(r"(?:^|[\\s\\t])states[\\s\\t]+([0-9,]+)", line)
+        if not m:
+            raise ValueError(f"trace marker missing states payload: {line}")
+        states.extend(int(x) for x in m.group(1).split(",") if x)
+    if not states:
+        raise ValueError("capture has no [L3CHUNK]/[L3TAIL] states")
+    return states
+
+
 def nested_decode(block: bytes, proto: int, start: int, size: int) -> bytes:
     if start < 0 or size < 0 or start + size > len(block):
         raise ValueError("nested LCG range outside block1")
@@ -71,8 +85,10 @@ def main() -> int:
     if digest != BLOCK1_SHA256:
         raise SystemExit(f"FAIL: block1 SHA mismatch: {digest}")
 
+    observed_states: list[int] | None = None
     if args.capture:
         marker = parse_marker(args.capture)
+        observed_states = parse_trace_states(args.capture)
         proto = marker["proto"]
         cursor = marker["cursor"]
         entry_byte = marker["byte"]
@@ -191,6 +207,24 @@ def main() -> int:
                                 "prefix_states": path,
                                 "status": "nested prefix reconstructed from source + runtime identity marker",
                             }
+
+    if observed_states is not None:
+        predicted = result["prefix_states"]
+        n = min(len(predicted), len(observed_states))
+        if predicted[:n] != observed_states[:n]:
+            for i in range(n):
+                if predicted[i] != observed_states[i]:
+                    raise SystemExit(
+                        f"FAIL: level3 runtime diverges at trace index {i}: "
+                        f"predicted {predicted[i]}, observed {observed_states[i]}"
+                    )
+            raise SystemExit("FAIL: level3 runtime/prediction prefix mismatch")
+        result["runtime_trace"] = {
+            "observed_state_count": len(observed_states),
+            "compared_prefix_count": n,
+            "predicted_prefix_fully_observed": len(observed_states) >= len(predicted),
+            "prefix_match": True,
+        }
 
     print(json.dumps(result, indent=2))
     if args.json:
