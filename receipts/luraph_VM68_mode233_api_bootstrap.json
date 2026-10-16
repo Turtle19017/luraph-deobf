@@ -1,0 +1,171 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-api-bootstrap.v1",
+  "block1_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "stage1_sha256": "108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec",
+  "j9_prefix_layout": {
+    "first_varint": 9523,
+    "A_c": 164,
+    "z4_entries": "399 entries, keys 1..399",
+    "z6": 0,
+    "z7_size": 79999,
+    "z7_stage1_offset": 1274,
+    "z7_sha256": "158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891"
+  },
+  "mode233_lazy_repair_hub": {
+    "pcs": "49..58",
+    "pointer_unmask_xor": 263872163,
+    "semantics": "for each opcode34 record, unmask one z4 cursor, decode its span length, XOR that z7 payload span with w[pc], then rewrite the current VM slot",
+    "records": [
+      {
+        "pc": 49,
+        "proto": 81,
+        "key": 1,
+        "result": "traceback"
+      },
+      {
+        "pc": 50,
+        "proto": 101,
+        "key": 30,
+        "result": "IsClient"
+      },
+      {
+        "pc": 51,
+        "proto": 113,
+        "key": 140,
+        "result": "Random"
+      },
+      {
+        "pc": 52,
+        "proto": 44,
+        "key": 211,
+        "result": "spawn"
+      },
+      {
+        "pc": 53,
+        "proto": 119,
+        "key": 62,
+        "result": "GetChildren"
+      },
+      {
+        "pc": 54,
+        "proto": 46,
+        "key": 29,
+        "result": "wait"
+      },
+      {
+        "pc": 55,
+        "proto": 111,
+        "key": 55,
+        "result": "GetPositionOnCurveArcLength"
+      },
+      {
+        "pc": 56,
+        "proto": 39,
+        "key": 238,
+        "result": "RequestAsync"
+      },
+      {
+        "pc": 57,
+        "proto": 48,
+        "key": 109,
+        "result": "defer"
+      },
+      {
+        "pc": 58,
+        "proto": 126,
+        "key": 230,
+        "result": ">I4"
+      }
+    ]
+  },
+  "pc1924_1931": [
+    {
+      "pc": 1924,
+      "semantic": "R34 = getfenv()[\"task\"]",
+      "proto": 218,
+      "string": "task"
+    },
+    {
+      "pc": 1925,
+      "semantic": "R35 = R34[\"cancel\"]",
+      "proto": 85,
+      "string": "cancel"
+    },
+    {
+      "pc": 1926,
+      "semantic": "R36 = R34[\"spawn\"]",
+      "proto": 44,
+      "string": "spawn"
+    },
+    {
+      "pc": 1927,
+      "semantic": "R38 = R34[\"defer\"]",
+      "proto": 48,
+      "string": "defer"
+    },
+    {
+      "pc": 1928,
+      "semantic": "R40 = R34[\"delay\"]",
+      "proto": 103,
+      "string": "delay"
+    },
+    {
+      "pc": 1929,
+      "semantic": "R49 = R34[\"wait\"]",
+      "proto": 46,
+      "string": "wait"
+    },
+    {
+      "pc": 1930,
+      "semantic": "R42 = getfenv()[\"Instance\"]",
+      "proto": 98,
+      "string": "Instance"
+    },
+    {
+      "pc": 1931,
+      "semantic": "R102 = getfenv()[\"Vector3\"]",
+      "proto": 193,
+      "string": "Vector3"
+    }
+  ],
+  "continuation": {
+    "pc1932": "R37 = 2121",
+    "pc1933": "jump through reusable pc49..59 trampoline -> next executed pc2122",
+    "pc2122_lazy_repair": {
+      "proto": 338,
+      "key": 68,
+      "result": "Vector2"
+    },
+    "pc2123": "R103 = getfenv()[\"Vector2\"]",
+    "pc2124_lazy_repair": {
+      "proto": 223,
+      "key": 169,
+      "result": "CFrame"
+    },
+    "pc2125": "R22 = getfenv()[\"CFrame\"]",
+    "pc2126": "R104 = getfenv()[\"Random\"]",
+    "pc2127": "R77 = getfenv()[\"identifyexecutor\"]",
+    "pc2128": "R78 = getfenv()[\"islclosure\"]",
+    "pc2129": {
+      "opcode": 82,
+      "bulk_xor": {
+        "start": 3964,
+        "length": 17,
+        "end": 3980,
+        "seed": 124
+      }
+    },
+    "pc2130": "R37 = 3963",
+    "pc2131": "jump through trampoline -> next executed pc3964"
+  },
+  "direct_string_protos": {
+    "85": "cancel",
+    "98": "Instance",
+    "103": "delay",
+    "157": "identifyexecutor",
+    "193": "Vector3",
+    "218": "task",
+    "345": "islclosure"
+  },
+  "note": "String results are obtained with the source-derived level3 string decoder (LCG seed=(61+proto)%256, mult=93, inc=155, xor=61) after applying the reachable opcode34 lazy repairs when required."
+}
