@@ -34,6 +34,8 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
   docs/005-A-static-chain-correction.md
   docs/005-multiblock-lcg.md
   docs/006-runtime-harness.md              runtime harness (Luau CLI), probe gotchas, scoped offset-base claim
+  docs/007-level3-state-graph.md           exact state→handler map + conservative successor graph
+  docs/008-level3-runtime-trace.md         bounded first-invocation level-3 trace
   tools/build_and_run_probe.py             assemble a harness and run it under a Luau CLI
   tools/derive_lcg_manifest.py
   tools/extract_lcg_blocks.py
@@ -42,6 +44,7 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
   tools/luraph15_static_stage1.py
   tools/make_A_probe.py
   tools/make_A_trace_probe.py
+  tools/make_level3_trace_probe.py         bounded first level-3 runtime trace
   tools/map_level3.py                      exploratory mapper for the third interpreter level
   tools/roblox_shim.luau                   minimal Roblox globals for out-of-Roblox execution
   tools/run_luau_capture.py                runner that keeps output across timeouts
@@ -114,6 +117,20 @@ no offset reproduces the digest.
 
 Using `srcoff` with no correction at all produces output whose entropy still sits at
 ~7.99 -- a plausible-looking result that is entirely wrong.
+
+## Trace the first level-3 invocation
+
+After the source-only state graph is built, generate a bounded runtime trace:
+
+```bash
+python tools/make_level3_trace_probe.py \
+  script.txt \
+  -o script_level3_trace.luau \
+  --budget 2048
+```
+
+The generated target remains local. See `docs/008-level3-runtime-trace.md` for
+the marker format and trust boundary.
 
 ## Scope
 
