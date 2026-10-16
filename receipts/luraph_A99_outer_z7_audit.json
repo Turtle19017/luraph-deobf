@@ -1,0 +1,114 @@
+{
+  "schema": "luraph-deobf.a99-outer-z7-audit.v1",
+  "outer_z7": {
+    "stage1_offset": 1274,
+    "size": 79999,
+    "sha256": "158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891"
+  },
+  "runtime_observation": "A321 first=1 after each of the eleven A99 decodes",
+  "blocks": [
+    {
+      "index": 1,
+      "seed_in": 164,
+      "size": 20936,
+      "runtime_srcoff": 35915,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 1,
+      "matches_runtime_first": true
+    },
+    {
+      "index": 2,
+      "seed_in": 325,
+      "size": 186,
+      "runtime_srcoff": 67199,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 79,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 3,
+      "seed_in": 229,
+      "size": 462,
+      "runtime_srcoff": 63804,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 188,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 4,
+      "seed_in": 129,
+      "size": 7397,
+      "runtime_srcoff": 67610,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 230,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 5,
+      "seed_in": 305,
+      "size": 2479,
+      "runtime_srcoff": 64645,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 242,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 6,
+      "seed_in": 339,
+      "size": 231,
+      "runtime_srcoff": 76744,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 40,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 7,
+      "seed_in": 347,
+      "size": 640,
+      "runtime_srcoff": 25107,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 70,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 8,
+      "seed_in": 281,
+      "size": 578,
+      "runtime_srcoff": 33488,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 179,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 9,
+      "seed_in": 187,
+      "size": 738,
+      "runtime_srcoff": 34478,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 129,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 10,
+      "seed_in": 283,
+      "size": 250,
+      "runtime_srcoff": 27267,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 201,
+      "matches_runtime_first": false
+    },
+    {
+      "index": 11,
+      "seed_in": 211,
+      "size": 3693,
+      "runtime_srcoff": 20461,
+      "runtime_A321_first": 1,
+      "candidate_plain_first_from_outer_z7": 124,
+      "matches_runtime_first": false
+    }
+  ],
+  "matching_block_indices": [
+    1
+  ],
+  "conclusion": "Only block 1 is consistent with using the verified outer J9 z[7] at its runtime srcoff. Blocks 2..11 require distinct P[7] provenance or other invocation context. A universal +1274 stage1 base is rejected."
+}
