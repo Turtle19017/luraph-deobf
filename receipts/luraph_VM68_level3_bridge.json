@@ -1,0 +1,59 @@
+{
+  "schema": "luraph-deobf.vm68-level3-bridge.v1",
+  "root_object": {
+    "dispatch_id": 68,
+    "mode233_reachable_pc": 1923,
+    "instruction": {
+      "semantic": "B[K[1923]] = I[1923]",
+      "companion_backing": {
+        "K": "metatable-backed lazy lane; K[0]=H",
+        "I": "metatable-backed lazy lane; I[0]=w"
+      },
+      "main_lane_proto_ids": {
+        "K_1923_from_H": 159,
+        "I_1923_from_w": 318
+      }
+    }
+  },
+  "companion_metatable": {
+    "metatable": "level3 closure table built during B:A finalization",
+    "metamethod_key": "__index",
+    "semantics": "missing positive-index companion lookup invokes the level3 VM with backing lane table and requested key"
+  },
+  "proto159": {
+    "provenance": "matches previously observed first level3 runtime trace",
+    "runtime_trace_states": [
+      8,
+      204,
+      12,
+      94,
+      207,
+      16,
+      72,
+      68,
+      117,
+      142,
+      117,
+      147,
+      153,
+      83
+    ],
+    "runtime_cursor": 63037,
+    "runtime_buffer_length": 79999,
+    "result_type": "string",
+    "result_utf8": "d",
+    "result_hex": "64",
+    "cache_effect": "state153 stores the returned value into the companion table before terminal state83"
+  },
+  "proto318": {
+    "result_type": "string",
+    "result_size": 2311,
+    "sha256": "d13f98e9039e98c1bb8cb2bbc9ea855cfc60f1169b86194cbe72e9d2c0c9670a",
+    "content_class": "ASCII-art / printable text",
+    "publication_scope": "hash/size only; full payload intentionally not committed"
+  },
+  "pc1923_effect": {
+    "canonical": "B[\"d\"] = <2311-byte string>",
+    "note": "This is the first source-closed payload-level side effect reached after VM bootstrap, two main-lane XOR passes, mode54 register trampolines, and the mode233 selector-102 decision tree."
+  }
+}
