@@ -26,24 +26,31 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 
 ## Layout
 
-```text
-docs/
-  001-stage1-base85.md
-  002-j9-loader.md
-  003-A-replay-layer1.md
-  004-runtime-probe.md
-  005-multiblock-lcg.md
-tools/
-  luraph15_static_stage1.py
-  luraph15_A_layer1.py
-  make_A_probe.py
-  make_A_trace_probe.py
-  derive_lcg_manifest.py
-  extract_lcg_blocks.py
-receipts/
-  luraph_stage1.receipt.json
-  luraph_A_entry164_layer1.receipt.json
-  luraph_A_lcg_blocks.trace.json
+```
+text
+  docs/001-stage1-base85.md
+  docs/002-j9-loader.md
+  docs/003-A-replay-layer1.md
+  docs/004-runtime-probe.md
+  docs/005-A-static-chain-correction.md
+  docs/005-multiblock-lcg.md
+  docs/006-runtime-harness.md              runtime harness (Luau CLI), probe gotchas, srcoff base correction
+  tools/build_and_run_probe.py             assemble a harness and run it under a Luau CLI
+  tools/derive_lcg_manifest.py
+  tools/extract_lcg_blocks.py
+  tools/luraph15_A_layer1.py
+  tools/luraph15_static_stage1.py
+  tools/make_A_probe.py
+  tools/make_A_probe_local.py              probe generator, anchors corrected for this build
+  tools/make_A_trace_probe.py
+  tools/make_offsets_probe.py              probe: print each LCG-XOR block source offset once
+  tools/map_level3.py                      structure of the third interpreter level
+  tools/roblox_shim.luau                   minimal Roblox globals for out-of-Roblox execution
+  tools/run_luau_capture.py                runner that keeps output across timeouts
+  tools/verify_block1_offset_base.py       fail-closed check that stage1_offset = srcoff + 1274
+  receipts/luraph_A_entry164_layer1.receipt.json
+  receipts/luraph_A_lcg_blocks.trace.json
+  receipts/luraph_stage1.receipt.json
 ```
 
 ## Reproduce stage 1
@@ -86,6 +93,24 @@ python tools/make_A_trace_probe.py script.txt -o script_A_trace.luau
 ```
 
 The generated instrumented targets remain local and are excluded from version control.
+
+## Run a probe outside Roblox
+
+The target can be executed under a stock `luau` CLI; no Roblox Studio and no
+`syn` are required. `tools/roblox_shim.luau` supplies the four globals it binds
+at construction time (`Vector2.new`, `Vector3.new`, `setfenv`, `getfenv`) plus
+the Roblox namespace objects it resolves dynamically. See
+`docs/006-runtime-harness.md` for the full list of runtime gotchas.
+
+## Verify the block-1 offset base
+
+```bash
+python tools/verify_block1_offset_base.py luraph_stage1.bin
+```
+
+This asserts `stage1_offset = srcoff + 1274` and re-derives the block-1 SHA-256,
+exiting non-zero on mismatch. Using `srcoff` directly produces output whose
+entropy still sits at ~7.99 -- a plausible-looking result that is entirely wrong.
 
 ## Scope
 

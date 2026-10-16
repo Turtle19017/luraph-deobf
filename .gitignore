@@ -2,6 +2,22 @@
 script.txt
 *.bin
 
+# Instrumented copies of the protected target (generated from script.txt by the
+# probe generators) and the assembled harnesses built from them.
+# These embed the full protected source, so they are never committed.
+script_A_probe.luau
+script_A_trace.luau
+script_offsets.luau
+run_probe*.luau
+run_trace.luau
+run_offsets.luau
+runner.luau
+
+# Raw probe output (multi-MB traces)
+probe_out*.txt
+capture_*.txt
+*.out
+
 # Python
 __pycache__/
 *.py[cod]
