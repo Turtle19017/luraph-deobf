@@ -89,14 +89,57 @@ The current model contains three distinct dispatcher layers:
 
 The level-3 closure contains the large family of micro-handlers such as `Ap`, `wp`, `vp`, `sp`, `op`, ... `z9`.
 
-## Offline extraction requirement
+## Source offsets can be derived offline
 
-The seed and size of all eleven blocks are now known. To extract them fully offline, one more value is required per block: the A-layer source base offset `q`.
+A new runtime run is **not required** merely to recover the eleven block source offsets if the J9 handoff artifacts are still available.
 
-In the `B:Q` state-99 call, A register `q` is passed as parameter `J`. The updated probe therefore logs:
+For each observed `seed_in`, `z4[seed_in]` points at the serialized block record. The source path before A99 is:
 
 ```text
-[A99] seed_in <n> seed0 <n> size <n> src <q>
+Gy(245)
+  ptr = z4[seed] + 1
+  read b0
+    b0 < 128  → 462 → 99
+    b0 >=128 → 405, read b1
+      b1 <128  → 13 → 99
+      b1 >=128 → 439, read b2 → 300 → 99
 ```
 
-Once the eleven `src` values are captured, `tools/extract_lcg_blocks.py` can reconstruct all eleven buffers without executing the target again.
+The exact length formulas are:
+
+```text
+1 byte: size = b0
+
+2 byte: size = 128*(b0-128) + b1
+
+3 byte: size = 128*(b0-128) + (b1-128) + 16384*b2
+```
+
+The plaintext source starts immediately after that 1/2/3-byte length header.
+
+`tools/derive_lcg_manifest.py` implements this path and fails closed if:
+
+- a seed is missing from `z4`,
+- a parsed size differs from the 11-block runtime census,
+- a fourth length limb is required, or
+- a block range exceeds the source buffer.
+
+Example:
+
+```bash
+python tools/derive_lcg_manifest.py \
+  luraph_j9_handoff.json \
+  luraph_j9_z_7.bin \
+  -o luraph_A_lcg_manifest.json
+```
+
+Then all eleven blocks can be reconstructed fully offline:
+
+```bash
+python tools/extract_lcg_blocks.py \
+  luraph_j9_z_7.bin \
+  --manifest luraph_A_lcg_manifest.json \
+  --expect-known-sample
+```
+
+The A99 runtime probe now also logs `src=J/q` as an independent cross-check, but it is no longer required for primary offset derivation.
