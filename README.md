@@ -7,13 +7,20 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 ## Current status
 
 - Recovered the outer `Y9` payload transform: `LPH%` magic removal, `gsub(j9, M9)`, then a custom radix-85 decoder.
-- Confirmed the nonstandard 5→4 digit permutation independently from both forward and inverse VM handlers.
+- Confirmed the nonstandard 5→4 radix-85 permutation independently from both forward and inverse VM handlers.
 - Reconstructed `stage1.bin` byte-for-byte with SHA-256:
   `108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec`.
-- Reimplemented/replayed the outer `J9` loader sufficiently to hand off into `B:A`.
-- Reached an inner 20,936-byte LCG-XOR-decoded layer for entry `164`, SHA-256:
+- Replayed the outer `J9` loader sufficiently to hand off into `B:A`.
+- Runtime tracing now shows **11 A-layer LCG-XOR blocks**, not one, totaling **37,590 decoded bytes**.
+- Block #1 remains independently reproducible:
+  `20,936 bytes`, SHA-256
   `ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e`.
-- Current blocker is a runtime/static divergence near state `438 → 365`; a fail-closed local probe generator is included.
+- The old `121 → 9 → 438 → 365` static path is superseded. Direct source mapping gives
+  `121 → 42 → 48`.
+- The current source-supported candidate continuation after each `A321 → 145` is:
+  `145 → 212 → 437 → 283 → 314 → 121 → 42 → 48`.
+  Conditional branches are being confirmed by the corrected successor trace.
+- A fail-closed offline multi-block extractor is ready; it only needs the eleven A99 source offsets.
 
 ## Layout
 
@@ -23,13 +30,17 @@ docs/
   002-j9-loader.md
   003-A-replay-layer1.md
   004-runtime-probe.md
+  005-multiblock-lcg.md
 tools/
   luraph15_static_stage1.py
   luraph15_A_layer1.py
   make_A_probe.py
+  make_A_trace_probe.py
+  extract_lcg_blocks.py
 receipts/
   luraph_stage1.receipt.json
   luraph_A_entry164_layer1.receipt.json
+  luraph_A_lcg_blocks.trace.json
 ```
 
 ## Reproduce stage 1
@@ -46,6 +57,15 @@ Expected decoded SHA-256:
 108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec
 ```
 
+## Build corrected A-layer probes
+
+```bash
+python tools/make_A_probe.py script.txt -o script_A_probe.luau
+python tools/make_A_trace_probe.py script.txt -o script_A_trace.luau
+```
+
+The generated instrumented targets remain local and are excluded from version control.
+
 ## Scope
 
-This is a reverse-engineering research repository. It does not include the protected source payload itself and does not claim a complete deobfuscator yet. Findings are recorded with hashes/receipts so each promoted claim can be checked independently.
+This is a reverse-engineering research repository. It does not include the protected source payload itself and does not claim a complete deobfuscator yet. Findings are recorded with hashes/receipts, and superseded interpretations are preserved explicitly rather than silently rewritten.
