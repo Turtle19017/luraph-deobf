@@ -133,3 +133,67 @@ There are two valid routes:
 
 Until one of those routes establishes the child `P[7]` buffers, blocks 2..11
 remain runtime-observed decodes with unresolved source-buffer provenance.
+
+
+## Exact stage1 prefix locator result
+
+A runtime probe captured the first 16 plaintext bytes of every decoded A99
+buffer. Re-encrypting those prefixes with the verified LCG and searching
+`stage1.bin` exactly produced:
+
+```text
+block #1   one hit at stage1 offset 37189, implied base 1274
+block #2   0 hits
+block #3   0 hits
+block #4   0 hits
+block #5   0 hits
+block #6   0 hits
+block #7   0 hits
+block #8   0 hits
+block #9   0 hits
+block #10  0 hits
+block #11  0 hits
+```
+
+No offset adjustment or entropy heuristic was used. The exact receipt is:
+
+```text
+receipts/luraph_A99_stage1_locator.json
+```
+
+This proves more than the earlier first-byte audit: for blocks 2..11 the
+runtime-derived 16-byte ciphertext prefix does not occur anywhere as a
+contiguous span in stage1.
+
+## Shared serialized-object prefix
+
+The eleven plaintext prefixes are structurally aligned. In particular, bytes
+8..10 of every block enter the same verified 3-byte integer branch used by
+block #1.
+
+Applying the already source-verified formula:
+
+```text
+raw   = 128*(b8-128) + (b9-128) + 16384*b10
+count = raw - 38764
+```
+
+gives:
+
+```text
+block 1   4474
+block 2     34
+block 3     99
+block 4   1516
+block 5    532
+block 6     43
+block 7    138
+block 8    127
+block 9    157
+block 10    50
+block 11   780
+```
+
+This is evidence that the ten child plaintexts use the same B:A serialized
+object grammar as block #1. It does not yet recover their source buffers or
+full plaintext bodies.
