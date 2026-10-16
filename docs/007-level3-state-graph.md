@@ -124,18 +124,26 @@ and 2.
 
 ## Static reachability
 
-Starting from the real entry state `8` and unioning every runtime-dependent
-successor gives an over-approximation containing 236 of 239 states.
+A review of the first successor extractor found one important scope bug: a
+handler formal can initially carry the dispatcher state and then be shadowed by
+a local of the same name. Conditions after that shadow are runtime data, not
+tests of the original state.
 
-The three states not reachable even in that over-approximation are:
+Three states were affected:
 
 ```text
-78, 156, 169
+5   wp : {228}  -> {78, 228}
+143 gp : {104}  -> {104, 169}
+184 o9 : {149}  -> {149, 156}
 ```
 
-This does **not** mean the other 236 states are observed at runtime. It means
-only that source control flow does not rule them out. Conversely, the three
-missing states have no path from entry 8 under the extracted successor graph.
+Those three added edges lead exactly to the three states previously reported as
+unreachable. With shadowing handled conservatively, the static
+over-approximation from entry state `8` now contains **239 of 239 states**.
+
+This still does **not** mean all 239 states are observed at runtime. It means
+source control flow alone cannot eliminate any state once runtime-dependent
+conditions are conservatively unioned.
 
 ## Reproduce
 
@@ -150,7 +158,9 @@ The tool is fail-closed for the known sample SHA unless
 - the 73-handler census changes,
 - a dispatch leaf stops assigning the current state in the expected way,
 - a successor expression cannot be reduced to integer state choices,
-- the `B:up` wrapper changes, or
+- the `B:up` wrapper changes,
+- a state-carrying formal is shadowed/reassigned and later treated as if it still
+  held the original dispatcher state, or
 - a successor leaves the derived state domain.
 
 ## What this unlocks
