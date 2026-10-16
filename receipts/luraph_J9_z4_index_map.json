@@ -1,0 +1,38 @@
+{
+  "schema": "luraph-deobf.j9-z4-index-map.v1",
+  "stage1_sha256": "108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec",
+  "map_start": 6,
+  "map_end": 1270,
+  "map_count": 399,
+  "width_histogram": {
+    "1": 9,
+    "3": 305,
+    "4": 85
+  },
+  "values_u32le_sha256": "c491ba502228a89b38cd8ff8febde9454bc55617abe26292c5a38a2e5f17a08e",
+  "anchors": {
+    "14": 57229,
+    "44": 263942668,
+    "46": 263891360,
+    "48": 263891762,
+    "159": 63037,
+    "164": 35911,
+    "211": 263852361,
+    "218": 64308,
+    "268": 263857930,
+    "318": 57245,
+    "399": 79954
+  },
+  "z6": {
+    "offset": 1270,
+    "value": 0
+  },
+  "z7": {
+    "length_field_offset": 1271,
+    "length_encoding_hex": "f0ff04",
+    "length": 79999,
+    "start": 1274,
+    "sha256": "158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891"
+  },
+  "interpretation": "The same serialized-integer codec used by A321 also encodes the 399-entry outer J9 proto index map. This removes the need for runtime cursor discovery for level3 constants."
+}
