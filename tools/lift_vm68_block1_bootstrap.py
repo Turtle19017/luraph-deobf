@@ -11,15 +11,17 @@ main VM lanes, and follows the source-derived bootstrap through:
   -> opcode 84 bulk XOR decryption of body slots 85..4441
   -> the first instruction that requires runtime register provenance
 
-It stops at mode54 pc35, whose rewritten opcode 72 performs:
+After the first bulk decrypt, mode54 pc35 rewrites to opcode 72. In mode54,
+opcode 72 is a direct jump-base instruction:
 
-    R[0] = R[72](R[11])
+    pc_base = s[pc]
 
-Register provenance is source-closed for this path: the frame is created empty,
-R72 is never written, and R11 receives the still-empty R8 before R8 is written
-later. Therefore R72 == nil and R11 == nil at pc35. If this returned closure is
-invoked along the deterministic bootstrap path, pc35 is a guaranteed nil-call
-failure, not an unresolved indirect call.
+Thus pc35 sets the base to 11; the common increment selects pc12. pc12 then
+rewrites to opcode80 and jumps indirectly through R37=84, entering the decrypted
+body at pc85.
+
+The tool currently models the deterministic bootstrap and first bulk-decrypt
+checkpoint; later reachable-mode lifting is recorded separately.
 
 No target execution is performed.
 """
@@ -456,21 +458,15 @@ def main() -> int:
             "after_u32le_sha256": after_hashes,
             "first16_decrypted_tuples": preview,
         },
-        "stop": {
+        "continuation": {
             "mode": 54,
             "pc": 35,
             "rewritten_tuple": lane_tuple(S, w, s, H, 35),
-            "semantic": "R[0] = R[72](R[11])",
-            "register_provenance": {
-                "frame_initialization": "table.create(130): registers initially nil",
-                "R72": "never written before pc35 -> nil",
-                "R11": (
-                    "pc4469 copies initial R8 into R11; R8 has not been written "
-                    "yet, so R11 remains nil"
-                ),
-                "varargs": "opcode52 stores them only in R12",
-            },
-            "result": "deterministic nil-call failure if the closure reaches pc35",
+            "semantic": "mode54 opcode72: pc base = s[35] = 11",
+            "next": (
+                "common increment -> pc12; pc12 rewrites to opcode80 and "
+                "indirects through R37=84 -> next executed pc85"
+            ),
         },
     }
 
