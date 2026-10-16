@@ -220,13 +220,21 @@ python tools/decode_a321_full_layout.py \
   --json _probe/a321_full_layout.json
 ```
 
-If all eleven objects report:
+The consolidated parser has now been run against all eleven runtime-verified
+plaintexts. Every object reports:
 
 ```text
 consumes_object_exactly = true
 bytes_remaining = 0
 ```
 
-then the complete byte framing of the known eleven-object A321 corpus is
-recovered. The next problem is semantic lifting of the four parallel tables,
-not finding another serialized phase.
+with:
+
+```text
+exact_eof_blocks = [1,2,3,4,5,6,7,8,9,10,11]
+```
+
+Therefore the complete byte framing of the known eleven-object A321 corpus is
+recovered. There is no additional serialized byte phase after the fill tail in
+this corpus. The remaining work is semantic lifting of the VM lanes and
+post-deserialization runtime behavior.
