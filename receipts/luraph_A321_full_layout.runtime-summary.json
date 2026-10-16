@@ -1,0 +1,20 @@
+{
+  "schema": "luraph-deobf.a321-full-layout-runtime-summary.v1",
+  "head": "b225c958d6b6426ef26f02b5db1f958662c2f64b",
+  "block_count": 11,
+  "all_blocks_end_exactly": true,
+  "exact_eof_blocks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "interpretation": "The consolidated source-derived parser consumes all 11 runtime-verified A321 plaintext objects exactly to EOF. No additional serialized byte phase remains after the fill tail in this corpus."
+}
