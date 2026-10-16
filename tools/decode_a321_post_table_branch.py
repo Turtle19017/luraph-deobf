@@ -103,14 +103,9 @@ def main() -> int:
 
         selector = data[tag_end + 2]
         # state10 is only reached through 46->229.
-        branch10 = (
-            328 if selector >= 128 else 425
-            if branch147 == 167 and branch46 == 229
-            else None
-        )
-        # Avoid Python conditional-precedence ambiguity in the emitted meaning.
-        if not (branch147 == 167 and branch46 == 229):
-            branch10 = None
+        branch10 = None
+        if branch147 == 167 and branch46 == 229:
+            branch10 = 328 if selector >= 128 else 425
 
         reaches237 = branch147 == 167 and branch46 == 229 and selector >= 128
 
