@@ -1,0 +1,473 @@
+{
+  "schema": "luraph-deobf.vm68-native-builtin-registration.v1",
+  "helper": {
+    "register": 85,
+    "constructed_at": {
+      "repair_pc": 1226,
+      "dispatch_pc": 1227,
+      "lazy_child_seed": 268
+    },
+    "call_shape": "R85(native_builtin, decoded_name_string)",
+    "interpretation": "native-builtin registration/bootstrap helper",
+    "confidence": "Repeated source-exact native slots paired with independently decoded identical string names."
+  },
+  "selector121": {
+    "entry_value": 121,
+    "bulk_xor": [
+      {
+        "pc": 1455,
+        "seed": 13,
+        "start": 897,
+        "length": 135,
+        "end": 1031
+      },
+      {
+        "pc": 1456,
+        "seed": 57,
+        "start": 1174,
+        "length": 64,
+        "end": 1237
+      },
+      {
+        "pc": 1219,
+        "seed": 92,
+        "start": 1207,
+        "length": 5,
+        "end": 1211
+      }
+    ],
+    "pre_helper_table": [
+      {
+        "pc": 1224,
+        "semantic": "R47[R53] = R55"
+      },
+      {
+        "pc": 1225,
+        "semantic": "R47[I[1225]] = V[1225]"
+      }
+    ],
+    "pairs": [
+      {
+        "builtin_slot": 6,
+        "builtin": "getmetatable",
+        "string_proto": 254,
+        "string_repair_xor": 177,
+        "string": "getmetatable"
+      },
+      {
+        "builtin_slot": 45,
+        "builtin": "setmetatable",
+        "string_proto": 390,
+        "string": "setmetatable"
+      },
+      {
+        "builtin_slot": 40,
+        "builtin": "tonumber",
+        "string_proto": 220,
+        "string": "tonumber"
+      },
+      {
+        "builtin_slot": 61,
+        "builtin": "tostring",
+        "string_proto": 69,
+        "string": "tostring"
+      },
+      {
+        "builtin_slot": 7,
+        "builtin": "rawset",
+        "string_proto": 230,
+        "string": "rawset"
+      },
+      {
+        "builtin_slot": 58,
+        "builtin": "rawget",
+        "string_proto": 199,
+        "string": "rawget"
+      },
+      {
+        "builtin_slot": 81,
+        "builtin": "select",
+        "string_proto": 316,
+        "string": "select"
+      },
+      {
+        "builtin_slot": 0,
+        "builtin": "xpcall",
+        "string_proto": 343,
+        "string_repair_xor": 65,
+        "string": "xpcall"
+      },
+      {
+        "builtin_slot": 82,
+        "builtin": "assert",
+        "string_proto": 279,
+        "string": "assert"
+      }
+    ],
+    "next_selector": {
+      "pc": 1209,
+      "value": 39
+    }
+  },
+  "selector39": {
+    "entry_value": 39,
+    "bulk_xor": [
+      {
+        "pc": 2748,
+        "seed": 32,
+        "start": 1325,
+        "length": 96,
+        "end": 1420
+      },
+      {
+        "pc": 1374,
+        "seed": 111,
+        "start": 1340,
+        "length": 24,
+        "end": 1363
+      }
+    ],
+    "pairs": [
+      {
+        "builtin_slot": 62,
+        "builtin": "error",
+        "string_proto": 275,
+        "string": "error"
+      },
+      {
+        "builtin_slot": 101,
+        "builtin": "pcall",
+        "string_proto": 257,
+        "string": "pcall"
+      },
+      {
+        "builtin_slot": 86,
+        "builtin": "type",
+        "string_proto": 377,
+        "string_repair_xor": 148,
+        "string": "type"
+      },
+      {
+        "builtin_slot": 5,
+        "builtin": "next",
+        "string_proto": 365,
+        "string_repair_xor": 105,
+        "string": "next"
+      },
+      {
+        "builtin_slot": 39,
+        "builtin": "getfenv",
+        "string_proto": 142,
+        "string_repair_xor": 109,
+        "string": "getfenv"
+      },
+      {
+        "builtin_slot": 90,
+        "builtin": "setfenv",
+        "string_proto": 354,
+        "string_repair_xor": 149,
+        "string": "setfenv"
+      },
+      {
+        "builtin_slot": 103,
+        "builtin": "typeof",
+        "string_proto": 340,
+        "string": "typeof"
+      },
+      {
+        "builtin_slot": 113,
+        "builtin": "string.gmatch",
+        "string_proto": 307,
+        "string": "gmatch"
+      },
+      {
+        "builtin_slot": 28,
+        "builtin": "string.format",
+        "string_proto": 141,
+        "string_repair_xor": 167,
+        "string": "format"
+      },
+      {
+        "builtin_slot": 75,
+        "builtin": "string.match",
+        "string_proto": 371,
+        "string": "match"
+      }
+    ],
+    "direct_alias": {
+      "pc": 1360,
+      "register": 47,
+      "builtin_slot": 46,
+      "builtin": "string.find"
+    },
+    "next_selector": {
+      "pc": 1361,
+      "value": 57
+    }
+  },
+  "selector57": {
+    "entry_value": 57,
+    "bulk_xor": [
+      {
+        "pc": 3892,
+        "seed": 18,
+        "start": 4247,
+        "length": 195,
+        "end": 4441
+      },
+      {
+        "pc": 4322,
+        "seed": 12,
+        "start": 4361,
+        "length": 37,
+        "end": 4397
+      }
+    ],
+    "pairs": [
+      {
+        "builtin_slot": 120,
+        "builtin": "string.char",
+        "string_proto": 168,
+        "string": "char"
+      },
+      {
+        "builtin_slot": 119,
+        "builtin": "string.byte",
+        "string_proto": 94,
+        "string": "byte"
+      },
+      {
+        "builtin_slot": 31,
+        "builtin": "string.gsub",
+        "string_proto": 289,
+        "string_repair_xor": 192,
+        "string": "gsub"
+      },
+      {
+        "builtin_slot": 114,
+        "builtin": "string.sub",
+        "string_proto": 351,
+        "string": "sub"
+      },
+      {
+        "builtin_slot": 41,
+        "builtin": "string.rep",
+        "string_proto": 228,
+        "string": "rep"
+      },
+      {
+        "builtin_slot": 52,
+        "builtin": "string.unpack",
+        "string_proto": 43,
+        "string": "unpack"
+      },
+      {
+        "builtin_slot": 95,
+        "builtin": "string.pack",
+        "string_proto": 12,
+        "string": "pack"
+      },
+      {
+        "builtin_slot": 116,
+        "builtin": "table.concat",
+        "string_proto": 399,
+        "string": "concat"
+      },
+      {
+        "builtin_slot": 67,
+        "builtin": "table.insert",
+        "string_proto": 259,
+        "string": "insert"
+      },
+      {
+        "builtin_slot": 70,
+        "builtin": "table.pack",
+        "string_proto": 12,
+        "string": "pack"
+      }
+    ],
+    "direct_alias": {
+      "pc": 4383,
+      "register": 47,
+      "builtin_slot": 27,
+      "builtin": "table.clear"
+    },
+    "next_selector": {
+      "pc": 4368,
+      "value": 112
+    }
+  },
+  "selector112": {
+    "entry_value": 112,
+    "pairs": [
+      {
+        "source_register": 47,
+        "builtin": "table.clear",
+        "string_proto": 221,
+        "string": "clear"
+      },
+      {
+        "builtin_slot": 26,
+        "builtin": "table.create",
+        "string_proto": 45,
+        "string": "create"
+      },
+      {
+        "builtin_slot": 49,
+        "builtin": "table.move",
+        "string_proto": 132,
+        "string_repair_xor": 96,
+        "string": "move"
+      },
+      {
+        "builtin_slot": 92,
+        "builtin": "bit32.bor",
+        "string_proto": 292,
+        "string": "bor"
+      },
+      {
+        "builtin_slot": 19,
+        "builtin": "bit32.bnot",
+        "string_proto": 137,
+        "string": "bnot"
+      },
+      {
+        "builtin_slot": 121,
+        "builtin": "bit32.bxor",
+        "string_proto": 330,
+        "string": "bxor"
+      },
+      {
+        "builtin_slot": 124,
+        "builtin": "bit32.band",
+        "string_proto": 380,
+        "string_repair_xor": 246,
+        "string": "band"
+      },
+      {
+        "builtin_slot": 43,
+        "builtin": "bit32.lshift",
+        "string_proto": 311,
+        "string": "lshift"
+      },
+      {
+        "builtin_slot": 14,
+        "builtin": "bit32.rshift",
+        "string_proto": 396,
+        "string": "rshift"
+      },
+      {
+        "builtin_slot": 21,
+        "builtin": "bit32.rrotate",
+        "string_proto": 314,
+        "string": "rrotate"
+      },
+      {
+        "builtin_slot": 112,
+        "builtin": "bit32.lrotate",
+        "string_proto": 156,
+        "string_repair_xor": 77,
+        "string": "lrotate"
+      }
+    ],
+    "next_selector": {
+      "pc": 1451,
+      "value": 28
+    }
+  },
+  "selector28_prefix": {
+    "entry_value": 28,
+    "bulk_xor": {
+      "pc": 1139,
+      "seed": 97,
+      "start": 2758,
+      "length": 1071,
+      "end": 3828
+    },
+    "pairs": [
+      {
+        "builtin_slot": 32,
+        "builtin": "bit32.countlz",
+        "string_proto": 277,
+        "string": "countlz"
+      },
+      {
+        "builtin_slot": 4,
+        "builtin": "bit32.countrz",
+        "string_proto": 392,
+        "string": "countrz"
+      },
+      {
+        "builtin_slot": 127,
+        "builtin": "buffer.len",
+        "string_proto": 286,
+        "string": "len"
+      },
+      {
+        "builtin_slot": 11,
+        "builtin": "buffer.fill",
+        "string_proto": 204,
+        "string": "fill"
+      },
+      {
+        "builtin_slot": 110,
+        "builtin": "buffer.copy",
+        "string_proto": 134,
+        "string": "copy"
+      },
+      {
+        "builtin_slot": 15,
+        "builtin": "buffer.create",
+        "string_proto": 45,
+        "string": "create"
+      },
+      {
+        "builtin_slot": 34,
+        "builtin": "buffer.tostring",
+        "string_proto": 69,
+        "string": "tostring"
+      },
+      {
+        "builtin_slot": 25,
+        "builtin": "buffer.fromstring",
+        "string_proto": 299,
+        "string": "fromstring"
+      },
+      {
+        "builtin_slot": 36,
+        "builtin": "buffer.readstring",
+        "string_proto": 285,
+        "string": "readstring"
+      },
+      {
+        "builtin_slot": 51,
+        "builtin": "buffer.writestring",
+        "string_proto": 136,
+        "string": "writestring"
+      }
+    ],
+    "transition": {
+      "pc": 3524,
+      "next_selector": 107
+    }
+  },
+  "selector107_prefix": {
+    "entry_value": 107,
+    "pairs": [
+      {
+        "builtin_slot": 117,
+        "builtin": "buffer.readu8",
+        "string_proto": 366,
+        "string": "readu8"
+      },
+      {
+        "builtin_slot": 80,
+        "builtin": "buffer.readi16",
+        "string_proto": 397,
+        "string_repair_xor": 228,
+        "string": "readi16"
+      }
+    ],
+    "continuation": "pc1582 bulk-XOR opens the next buffer-API registration block; lifting continues from there."
+  }
+}
