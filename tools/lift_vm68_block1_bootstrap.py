@@ -11,12 +11,15 @@ main VM lanes, and follows the source-derived bootstrap through:
   -> opcode 84 bulk XOR decryption of body slots 85..4441
   -> the first instruction that requires runtime register provenance
 
-It intentionally stops at mode54 pc35, whose rewritten opcode 72 performs:
+It stops at mode54 pc35, whose rewritten opcode 72 performs:
 
     R[0] = R[72](R[11])
 
-The current static lane/bootstrap evidence does not establish R72/R11 values,
-so the tool does not guess beyond that point.
+Register provenance is source-closed for this path: the frame is created empty,
+R72 is never written, and R11 receives the still-empty R8 before R8 is written
+later. Therefore R72 == nil and R11 == nil at pc35. If this returned closure is
+invoked along the deterministic bootstrap path, pc35 is a guaranteed nil-call
+failure, not an unresolved indirect call.
 
 No target execution is performed.
 """
@@ -458,10 +461,16 @@ def main() -> int:
             "pc": 35,
             "rewritten_tuple": lane_tuple(S, w, s, H, 35),
             "semantic": "R[0] = R[72](R[11])",
-            "reason": (
-                "current static bootstrap proof does not establish runtime "
-                "register values R72 and R11; do not guess past this call"
-            ),
+            "register_provenance": {
+                "frame_initialization": "table.create(130): registers initially nil",
+                "R72": "never written before pc35 -> nil",
+                "R11": (
+                    "pc4469 copies initial R8 into R11; R8 has not been written "
+                    "yet, so R11 remains nil"
+                ),
+                "varargs": "opcode52 stores them only in R12",
+            },
+            "result": "deterministic nil-call failure if the closure reaches pc35",
         },
     }
 
