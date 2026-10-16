@@ -48,7 +48,7 @@ def parse_trace_states(path: Path) -> list[int]:
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         if not (line.startswith("[L3CHUNK]") or line.startswith("[L3TAIL]")):
             continue
-        m = re.search(r"(?:^|[\\s\\t])states[\\s\\t]+([0-9,]+)", line)
+        m = re.search(r"(?:^|[\s\t])states[\s\t]+([0-9,]+)", line)
         if not m:
             raise ValueError(f"trace marker missing states payload: {line}")
         states.extend(int(x) for x in m.group(1).split(",") if x)
