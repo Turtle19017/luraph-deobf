@@ -38,7 +38,7 @@ jobs:
         run: |
           set -e
           for t in luraph15_static_stage1.py luraph15_A_layer1.py \
-                   make_A_probe.py make_A_trace_probe.py; do
+                   make_A_probe.py make_A_trace_probe.py make_level3_trace_probe.py; do
             echo "--- $t"
             if python "tools/$t" --help >/dev/null 2>&1; then
               echo "    --help ok"
@@ -56,6 +56,15 @@ jobs:
             exit 1
           fi
           echo "ok: rejected as expected"
+
+      - name: level3 trace probe is fail-closed on a foreign target
+        run: |
+          printf 'not a luraph payload at all\n' > /tmp/fake-l3.txt
+          if python tools/make_level3_trace_probe.py /tmp/fake-l3.txt -o /tmp/out-l3.luau; then
+            echo "FAIL: level3 generator accepted a non-target input"
+            exit 1
+          fi
+          echo "ok: level3 generator rejected as expected"
 
       - name: luatok slices a known function
         run: |
