@@ -1,0 +1,108 @@
+{
+  "schema": "luraph-deobf.a321-block1-phase5-tail.v1",
+  "block_index": 1,
+  "seed_in": 164,
+  "object_size": 20936,
+  "object_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "phase4_end": 15213,
+  "phase5_integer_a": {
+    "offset": 15213,
+    "end_offset": 15215,
+    "value": 130,
+    "width": 2,
+    "encoding_hex": "8102"
+  },
+  "phase5_integer_b": {
+    "offset": 15215,
+    "end_offset": 15216,
+    "value": 68,
+    "width": 1,
+    "encoding_hex": "44"
+  },
+  "phase5_integer_c": {
+    "offset": 15216,
+    "end_offset": 15217,
+    "value": 29,
+    "width": 1,
+    "encoding_hex": "1d"
+  },
+  "fourth_table": {
+    "count": 4474,
+    "start": 15217,
+    "end": 20931,
+    "encoded_size": 5714,
+    "width_histogram": {
+      "1": 3240,
+      "2": 1231,
+      "4": 3
+    },
+    "minimum": 0,
+    "maximum": 404839701,
+    "zero_count": 60,
+    "lt_128_count": 3240,
+    "raw_sha256": "f14a8de2dd31217d2dac7536edc68a58808ba59a195c19dc3c1e0e1840e127e7",
+    "values_u64le_sha256": "ee399d3e16043f66b9ff13d3b2e38ed34d43408c476fd9469d14738aadae31d4",
+    "first16": [
+      13,
+      20,
+      20,
+      5353,
+      5353,
+      5353,
+      5353,
+      5353,
+      613,
+      361,
+      74,
+      20,
+      5353,
+      5353,
+      5353,
+      5353
+    ],
+    "last16": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      19,
+      0,
+      84,
+      4471,
+      0
+    ]
+  },
+  "fill_tail": {
+    "fill_offset_delta": {
+      "offset": 20931,
+      "end_offset": 20932,
+      "value": 0,
+      "width": 1,
+      "encoding_hex": "00"
+    },
+    "fill_length": {
+      "offset": 20932,
+      "end_offset": 20935,
+      "value": 20925,
+      "width": 3,
+      "encoding_hex": "a3bd01"
+    },
+    "fill_byte": {
+      "offset": 20935,
+      "end_offset": 20936,
+      "value": 109,
+      "encoding_hex": "6d"
+    },
+    "source_operation": "buffer.fill(target_buffer, base_offset + fill_offset_delta, fill_byte, fill_length)"
+  },
+  "phase5_end": 20936,
+  "bytes_remaining_after_phase5": 0,
+  "consumes_object_exactly": true
+}
