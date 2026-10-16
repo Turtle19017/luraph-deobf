@@ -7,8 +7,13 @@ before its dispatch method (block1: B[68]) is called.
 It prints:
   * indirect-key descriptors and resolved dispatch/mode/entry/stack fields
   * the 8 runtime instruction lanes at entry_pc
+  * the finalized bootstrap slots entry_pc..entry_pc+18
   * the same 8 lanes at pc=11
-  * selected lane lengths
+  * sequence-prefix lengths (the # operator; auxiliary lanes may be sparse)
+
+Arbitrary lane values are rendered with a side-effect-free scalar formatter.
+This intentionally avoids tostring(table/userdata), because a __tostring
+metamethod can re-enter protected VM code while the probe is only inspecting it.
 
 Then it aborts intentionally with __AFINAL_DONE__ so the returned B[68] closure
 is never executed.
@@ -46,6 +51,10 @@ def main() -> int:
 
     patch = (
         "Z=B:A(z,c);"
+        "local function __safe(x)local t=type(x);"
+        "if x==nil then return 'nil' end;"
+        "if t=='number' or t=='boolean' or t=='string' then return tostring(x) end;"
+        "return '<'..t..'>' end;"
         "local __dk=Z[1];local __pk=Z[6];local __mk=Z[7];local __sk=Z[9];"
         "local __dispatch=Z[__dk];local __pc=Z[__pk];"
         "local __mode=Z[__mk];local __stack=Z[__sk];"
@@ -55,26 +64,26 @@ def main() -> int:
         "print('[AFINALMETA]','dispatch_key',__dk,'dispatch',__dispatch,"
         "'pc_key',__pk,'pc',__pc,'mode_key',__mk,'mode',__mode,"
         "'stack_key',__sk,'stack',__stack);"
-        "print('[AFINALLEN]','op',#__op,'S',#__S,'w',#__w,'H',#__H,"
-        "'av',#__av,'aI',#__aI,'aV',#__aV,'aK',#__aK);"
-        "print('[AFINALHELPER]','B3_type',type(B[3]),'B3',tostring(B[3]));"
+        "print('[AFINALLEN]','op_seq',#__op,'S_seq',#__S,'w_seq',#__w,'H_seq',#__H,"
+        "'av_seq',#__av,'aI_seq',#__aI,'aV_seq',#__aV,'aK_seq',#__aK);"
+        "print('[AFINALHELPER]','B3_type',type(B[3]),'B3',__safe(B[3]));"
         "print('[AFINALENTRY]','pc',__pc,"
-        "'op',tostring(__op[__pc]),'S',tostring(__S[__pc]),"
-        "'w',tostring(__w[__pc]),'H',tostring(__H[__pc]),"
-        "'av',tostring(__av[__pc]),'aI',tostring(__aI[__pc]),"
-        "'aV',tostring(__aV[__pc]),'aK',tostring(__aK[__pc]));"
+        "'op',__safe(__op[__pc]),'S',__safe(__S[__pc]),"
+        "'w',__safe(__w[__pc]),'H',__safe(__H[__pc]),"
+        "'av',__safe(__av[__pc]),'aI',__safe(__aI[__pc]),"
+        "'aV',__safe(__aV[__pc]),'aK',__safe(__aK[__pc]));"
         "local __last=math.min(__pc+18,#__op);"
         "for __i=__pc,__last do "
         "print('[AFINALSLOT]','pc',__i,"
-        "'op',tostring(__op[__i]),'S',tostring(__S[__i]),"
-        "'w',tostring(__w[__i]),'H',tostring(__H[__i]),"
-        "'av',tostring(__av[__i]),'aI',tostring(__aI[__i]),"
-        "'aV',tostring(__aV[__i]),'aK',tostring(__aK[__i]));end;"
+        "'op',__safe(__op[__i]),'S',__safe(__S[__i]),"
+        "'w',__safe(__w[__i]),'H',__safe(__H[__i]),"
+        "'av',__safe(__av[__i]),'aI',__safe(__aI[__i]),"
+        "'aV',__safe(__aV[__i]),'aK',__safe(__aK[__i]));end;"
         "print('[AFINAL11]','pc',11,"
-        "'op',tostring(__op[11]),'S',tostring(__S[11]),"
-        "'w',tostring(__w[11]),'H',tostring(__H[11]),"
-        "'av',tostring(__av[11]),'aI',tostring(__aI[11]),"
-        "'aV',tostring(__aV[11]),'aK',tostring(__aK[11]));"
+        "'op',__safe(__op[11]),'S',__safe(__S[11]),"
+        "'w',__safe(__w[11]),'H',__safe(__H[11]),"
+        "'av',__safe(__av[11]),'aI',__safe(__aI[11]),"
+        "'aV',__safe(__aV[11]),'aK',__safe(__aK[11]));"
         "print((' '):rep(4096));error('__AFINAL_DONE__');"
     )
 
