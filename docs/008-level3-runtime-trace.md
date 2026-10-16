@@ -87,6 +87,22 @@ python tools/run_luau_capture.py \
 Using `--build-only` avoids the older builder's `subprocess.run(..., timeout=...)`
 path discarding partial output when the target survives indefinitely.
 
+
+After capture, feed the runtime identity marker and state chunks into the
+verified block-1 prefix model:
+
+```bash
+python tools/block1_level3_prefix.py \
+  /path/to/block1.bin \
+  --capture capture_level3.txt \
+  --json block1_level3_prefix.json
+```
+
+The tool first verifies the block-1 SHA-256, then requires the runtime
+`buflen/cursor/byte` to agree with those exact bytes. It also compares the
+source-predicted state prefix with the observed `[L3CHUNK]/[L3TAIL]` sequence.
+Any mismatch is fatal; it will not continue a plausible-looking decode.
+
 ## Trust boundary
 
 The probe does not claim that every statically possible successor is reachable.
