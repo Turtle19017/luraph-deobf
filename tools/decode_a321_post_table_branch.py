@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""Classify the common post-table B:A branch across all 11 A321 plaintexts.
+"""Parse the common post-table B:A fields across all 11 A321 plaintexts.
 
-The first-table parser already establishes table_end for every object and shows
-that the next serialized integer is 215 (encoded as 81 57) in all eleven.
+The first-table parser establishes table_end for each object. All eleven then
+contain the serialized integer 215 encoded as 81 57.
 
-This tool follows the exact source path immediately after that integer:
+Source-derived path after that tag:
 
-  table_end:
-    82(M)  reads b0
-    272(zy) reads b1
-    275(Yy) decodes 215 and advances cursor by 2
-    147(p)  reads meta16 byte at +2
-      <128  -> 167(_)
-      >=128 -> 267(...)
-    167(_) advances cursor by 1
-    46(G)   reads meta5 byte at +3
-      <128  -> 229(Sy)
-      >=128 -> 490(...)
-    229(Sy) advances cursor by 1
-    10(o)   reads selector byte at +4
-      <128  -> 425(...)
-      >=128 -> 328(Ey) -> 237(Ty)
+  state147 reads meta16
+    <128  -> 167
+    >=128 -> 267
 
-It reports branch signatures and raw bytes; it does not force all objects to
-match block #1. Inputs are verified against the runtime plaintext receipt.
+  state46 (after 167) reads meta5
+    <128  -> 229
+    >=128 -> 490
+
+  state10 (after 229) begins ANOTHER serialized integer at E+4.
+
+That integer uses the same verified 1/2/3/4-byte grammar:
+  width 1: 10 -> 328 -> 237
+  width 2: 10 -> 425 -> 88  -> 237
+  width 3: 10 -> 425 -> 473 -> 482 -> 237
+  width 4: 10 -> 425 -> 473 -> 101 -> 237
+
+Important correction: the old classifier inverted the state10 branch. The
+actual source is:
+
+    not(128 > first_byte) and 425 or 328
+
+so first_byte < 128 goes directly to 328, while first_byte >= 128 goes to 425
+to read more integer limbs.
+
+Inputs are verified against the runtime plaintext receipt.
 """
 from __future__ import annotations
 
@@ -45,6 +52,33 @@ def recompute_table_end(data: bytes) -> tuple[int, int]:
     for _ in range(count):
         _, pos, _ = decode_one(data, pos)
     return count, pos
+
+
+def secondary_integer_path(data: bytes, pos: int) -> tuple[int, int, int, list[int]]:
+    """Decode the integer beginning at state10 and return its exact state path."""
+    value, end, width = decode_one(data, pos)
+    b0 = data[pos]
+
+    if width == 1:
+        if b0 >= 128:
+            raise ValueError("width1 integer has high first byte")
+        path = [10, 328, 237]
+    elif width == 2:
+        if not (b0 >= 128 and data[pos + 1] < 128):
+            raise ValueError("width2 threshold pattern mismatch")
+        path = [10, 425, 88, 237]
+    elif width == 3:
+        if not (b0 >= 128 and data[pos + 1] >= 128 and data[pos + 2] < 128):
+            raise ValueError("width3 threshold pattern mismatch")
+        path = [10, 425, 473, 482, 237]
+    elif width == 4:
+        if not (b0 >= 128 and data[pos + 1] >= 128 and data[pos + 2] >= 128):
+            raise ValueError("width4 threshold pattern mismatch")
+        path = [10, 425, 473, 101, 237]
+    else:
+        raise ValueError(f"unexpected serialized integer width {width}")
+
+    return value, end, width, path
 
 
 def main() -> int:
@@ -97,17 +131,36 @@ def main() -> int:
         meta16 = data[tag_end]
         branch147 = 167 if meta16 < 128 else 267
 
-        meta5 = data[tag_end + 1]
-        # state46 is only reached through the block-1-compatible 147->167 branch.
-        branch46 = (229 if meta5 < 128 else 490) if branch147 == 167 else None
+        meta5 = None
+        branch46 = None
+        secondary = None
+        reaches237 = False
+        full_path = [82, 272, 275, 147, branch147]
 
-        selector = data[tag_end + 2]
-        # state10 is only reached through 46->229.
-        branch10 = None
-        if branch147 == 167 and branch46 == 229:
-            branch10 = 328 if selector >= 128 else 425
+        if branch147 == 167:
+            meta5 = data[tag_end + 1]
+            branch46 = 229 if meta5 < 128 else 490
+            full_path += [46, branch46]
 
-        reaches237 = branch147 == 167 and branch46 == 229 and selector >= 128
+            if branch46 == 229:
+                secondary_start = tag_end + 2
+                try:
+                    value2, end2, width2, path2 = secondary_integer_path(
+                        data, secondary_start
+                    )
+                except ValueError as e:
+                    raise SystemExit(f"FAIL: block {index}: {e}") from e
+
+                secondary = {
+                    "offset": secondary_start,
+                    "end_offset": end2,
+                    "value": value2,
+                    "width": width2,
+                    "encoding_hex": data[secondary_start:end2].hex(),
+                    "state_path": path2,
+                }
+                full_path += path2
+                reaches237 = path2[-1] == 237
 
         rows.append({
             "index": index,
@@ -130,35 +183,41 @@ def main() -> int:
                 "offset": tag_end + 1,
                 "byte": meta5,
                 "state46_next": branch46,
-            },
-            "selector": {
-                "offset": tag_end + 2,
-                "byte": selector,
-                "state10_next": branch10,
-            },
-            "block1_compatible_suffix_path": reaches237,
-            "suffix_path_if_compatible": [82,272,275,147,167,46,229,10,328,237]
-                if reaches237 else None,
-            "cursor_at_state237": tag_end + 3 if reaches237 else None,
-            "raw5_hex": data[table_end:tag_end + 3].hex(),
+            } if meta5 is not None else None,
+            "secondary_integer": secondary,
+            "reaches_state237": reaches237,
+            "path_from_state82": full_path,
+            "cursor_at_state237": secondary["end_offset"]
+                if reaches237 and secondary is not None else None,
+            "raw_post_table_hex": (
+                data[table_end:secondary["end_offset"]].hex()
+                if secondary is not None
+                else data[table_end:tag_end + 1].hex()
+            ),
         })
 
-    compatible = [r["index"] for r in rows if r["block1_compatible_suffix_path"]]
-    signatures = {}
-    for r in rows:
-        sig = (
-            r["meta16"]["state147_next"],
-            r["meta5"]["state46_next"],
-            r["selector"]["state10_next"],
-        )
-        signatures.setdefault(str(sig), []).append(r["index"])
+    width_groups: dict[str, list[int]] = {}
+    path_groups: dict[str, list[int]] = {}
+    for row in rows:
+        sec = row["secondary_integer"]
+        width_key = str(sec["width"]) if sec is not None else "unreached"
+        width_groups.setdefault(width_key, []).append(row["index"])
+        path_key = "->".join(str(x) for x in row["path_from_state82"])
+        path_groups.setdefault(path_key, []).append(row["index"])
+
+    reaches237 = [row["index"] for row in rows if row["reaches_state237"]]
 
     result = {
-        "schema": "luraph-deobf.a321-post-table-branch.v1",
+        "schema": "luraph-deobf.a321-post-table-fields.v2",
         "block_count": len(rows),
         "invariant_tag": {"value": 215, "width": 2, "encoding_hex": "8157"},
-        "block1_compatible_suffix_blocks": compatible,
-        "branch_signature_groups": signatures,
+        "state10_branch_rule": {
+            "first_byte_lt_128": 328,
+            "first_byte_ge_128": 425,
+        },
+        "secondary_integer_width_groups": width_groups,
+        "path_groups": path_groups,
+        "reaches_state237_blocks": reaches237,
         "blocks": rows,
     }
 
