@@ -8,8 +8,9 @@ The source-derived level-3 map is now exact for:
 - the closed state domain 0..238,
 - conservative successor candidates after accounting for formal shadowing.
 
-What it still does **not** tell us is which runtime-dependent edge is taken while
-the verified block-1 plaintext is actually parsed.
+What it still does **not** tell us is which runtime-dependent edge is taken in a
+real `c[B.ep]` invocation, or which serialized buffer/cursor that invocation
+actually reads.
 
 That runtime path is the shortest way to decide which subset of the 239 states
 needs semantic lifting first.
@@ -54,8 +55,18 @@ A focused entry marker is also emitted from `vp` state 8:
 [L3VP8] proto <n> cursor <n> byte <n> buflen <n> buf <identity>
 ```
 
-This is intended to answer whether the entry read really corresponds to
-block1[0] == 0x01, and identifies the runtime buffer/cursor used by that branch.
+This identifies the runtime buffer/cursor used by that branch. The first
+observed run disproved the earlier block-1 assumption:
+
+```text
+proto  = 159
+cursor = 63037
+byte   = 45
+buflen = 79999
+```
+
+The 79,999-byte length is consistent with the previously recovered J9 `z[7]`
+buffer, but length alone is not pointer identity proof.
 
 ## Build
 
@@ -88,20 +99,49 @@ Using `--build-only` avoids the older builder's `subprocess.run(..., timeout=...
 path discarding partial output when the target survives indefinitely.
 
 
-After capture, feed the runtime identity marker and state chunks into the
-verified block-1 prefix model:
+After capture, validate the runtime sequence against the source-derived graph:
 
 ```bash
-python tools/block1_level3_prefix.py \
-  /path/to/block1.bin \
-  --capture capture_level3.txt \
-  --json block1_level3_prefix.json
+python tools/level3_runtime_context.py \
+  capture_level3.txt \
+  --json level3_runtime_context.json
 ```
 
-The tool first verifies the block-1 SHA-256, then requires the runtime
-`buflen/cursor/byte` to agree with those exact bytes. It also compares the
-source-predicted state prefix with the observed `[L3CHUNK]/[L3TAIL]` sequence.
-Any mismatch is fatal; it will not continue a plausible-looking decode.
+If the recovered J9 `z[7]` buffer is available, cross-check it as the runtime
+buffer candidate:
+
+```bash
+python tools/level3_runtime_context.py \
+  capture_level3.txt \
+  --candidate-buffer luraph_j9_z_7.bin \
+  --json level3_runtime_context.json
+```
+
+The verifier checks every observed runtime edge against
+`receipts/luraph_level3_state_graph.tsv`, checks that the observed final state
+is terminal, and compares the candidate buffer length plus byte at the runtime
+cursor. It deliberately reports candidate-buffer agreement as consistency
+evidence rather than pointer identity proof.
+
+## First observed run
+
+The first bounded trace produced:
+
+```text
+8 -> 204 -> 12 -> 94 -> 207 -> 16 -> 72 -> 68
+  -> 117 -> 142 -> 117 -> 147 -> 153 -> 83
+```
+
+Every edge is present in the conservative source graph, and state `83` is the
+special `up` terminal state. The earlier predicted `204 -> 80` was not a state
+graph error; it came from incorrectly applying block-1 bytes to a different
+runtime buffer.
+
+The original probe printed `[L3TERM] run=2..226 n=0`. This does **not** mean
+those invocations executed zero states: the probe increments `__l3n` only while
+`__l3trace` is true, and `__l3trace` is enabled only for run 1. Later `n=0`
+values are therefore an instrumentation artifact. The probe has been changed to
+emit `[L3TERM]` only for the traced invocation.
 
 ## Trust boundary
 
