@@ -1,0 +1,11 @@
+# Original protected target and reconstructed binary stages are intentionally local-only.
+script.txt
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Local analysis scratch
+scratch/
+*.log
