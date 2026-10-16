@@ -8,7 +8,7 @@ anchor also matched a different handler layout.
 
 The corrected probe strategy has two separate jobs.
 
-## Probe 1 — block census
+## Probe 1 — block census and cross-check
 
 `tools/make_A_probe.py` instruments only the verified A-layer block decoder
 checkpoints:
@@ -18,11 +18,8 @@ checkpoints:
 [A321] decoded-buffer length / first byte / next state
 ```
 
-The A99 marker now includes the A register `q`, passed into `B:Q` as
-parameter `J`, under the label `src`.
-
-That source offset is the remaining datum needed to reconstruct each block
-offline.
+The A99 marker includes the A register `q`, passed into `B:Q` as parameter
+`J`, under the label `src`.
 
 Runtime tracing has already established eleven A99 invocations with these
 `seed_in,size` pairs:
@@ -42,6 +39,11 @@ Runtime tracing has already established eleven A99 invocations with these
 ```
 
 Total decoded size: **37,590 bytes**.
+
+The `src` values are useful as an independent runtime cross-check, but they
+are no longer required to decode the blocks: `tools/derive_lcg_manifest.py`
+derives the same offsets from the J9 handoff's `z4` table and serialized
+length headers.
 
 ## Probe 2 — successor trace after A321
 
@@ -82,13 +84,19 @@ that the A-layer successor chain itself changes.
 
 ## Offline handoff
 
-Once all eleven A99 lines contain `src`, use:
+If `luraph_j9_handoff.json` and `luraph_j9_z_7.bin` are available, no new
+runtime pass is needed to obtain block offsets:
 
 ```bash
-python tools/extract_lcg_blocks.py luraph_j9_z_7.bin \
-  --trace probe.log \
+python tools/derive_lcg_manifest.py \
+  luraph_j9_handoff.json \
+  luraph_j9_z_7.bin \
+  -o luraph_A_lcg_manifest.json
+
+python tools/extract_lcg_blocks.py \
+  luraph_j9_z_7.bin \
+  --manifest luraph_A_lcg_manifest.json \
   --expect-known-sample
 ```
 
-The extractor performs the LCG-XOR reconstruction only; it does not execute the
-protected target.
+The extractor performs only the static LCG-XOR reconstruction.
