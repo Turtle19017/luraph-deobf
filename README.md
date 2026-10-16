@@ -11,7 +11,7 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 - Reconstructed `stage1.bin` byte-for-byte with SHA-256:
   `108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec`.
 - Replayed the outer `J9` loader sufficiently to hand off into `B:A`.
-- Runtime tracing now shows **11 A-layer LCG-XOR blocks**, not one, totaling **37,590 decoded bytes**.
+- Runtime tracing shows **11 A-layer LCG-XOR blocks**, totaling **37,590 decoded bytes**.
 - Block #1 remains independently reproducible:
   `20,936 bytes`, SHA-256
   `ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e`.
@@ -20,7 +20,9 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 - The current source-supported candidate continuation after each `A321 → 145` is:
   `145 → 212 → 437 → 283 → 314 → 121 → 42 → 48`.
   Conditional branches are being confirmed by the corrected successor trace.
-- A fail-closed offline multi-block extractor is ready; it only needs the eleven A99 source offsets.
+- The eleven block source offsets can now be derived **fully offline** from
+  `z4[seed_in]` plus the 1/2/3-byte serialized length parser; a new runtime
+  pass is not needed for offset recovery if the J9 handoff artifacts are available.
 
 ## Layout
 
@@ -36,6 +38,7 @@ tools/
   luraph15_A_layer1.py
   make_A_probe.py
   make_A_trace_probe.py
+  derive_lcg_manifest.py
   extract_lcg_blocks.py
 receipts/
   luraph_stage1.receipt.json
@@ -56,6 +59,24 @@ Expected decoded SHA-256:
 ```text
 108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec
 ```
+
+## Decode all 11 A-layer blocks offline
+
+With the J9 handoff artifacts:
+
+```bash
+python tools/derive_lcg_manifest.py \
+  luraph_j9_handoff.json \
+  luraph_j9_z_7.bin \
+  -o luraph_A_lcg_manifest.json
+
+python tools/extract_lcg_blocks.py \
+  luraph_j9_z_7.bin \
+  --manifest luraph_A_lcg_manifest.json \
+  --expect-known-sample
+```
+
+The second command emits one plaintext file per block, a concatenation in trace order, and a receipt with hashes.
 
 ## Build corrected A-layer probes
 
