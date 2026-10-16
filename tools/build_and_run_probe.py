@@ -59,7 +59,7 @@ if type(getfenv) ~= "function" then getfenv = function(...) return _G end end
     print(f"[run] exit={r.returncode}  stdout={len(out):,}B  stderr={len(err):,}B")
 
     print("\n=== markers ===")
-    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[AFINALMETA]", "[AFINALLEN]", "[AFINALHELPER]", "[AFINALENTRY]", "[AFINALSLOT]", "[AFINAL11]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
+    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[R177PRE]", "[R177POST]", "[AFINALMETA]", "[AFINALLEN]", "[AFINALHELPER]", "[AFINALENTRY]", "[AFINALSLOT]", "[AFINAL11]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
         hits = [ln for ln in out.split("\n") if ln.startswith(pat)]
         for h in hits[:6]:
             print("  " + h)
