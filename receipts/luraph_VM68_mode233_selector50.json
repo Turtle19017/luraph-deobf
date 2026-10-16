@@ -1,0 +1,65 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector50.v1",
+  "entry": {
+    "register": "R88",
+    "value": 50,
+    "source": "selector141 success arm"
+  },
+  "decision_path": [
+    "pc2409: 50 <= 71 -> true",
+    "pc1151: R9 = (50 <= 35) -> false",
+    "pc1152: branch on R9 -> pc2159",
+    "pc2159: 50 <= 53 -> true -> pc3831",
+    "pc3831: 50 <= 44 -> false",
+    "pc3832: jump -> pc1309",
+    "pc1309: R37 = 2527",
+    "pc1310: reusable hub -> pc2528"
+  ],
+  "reachable_bulk_xor": [
+    {
+      "pc": 2528,
+      "seed": 56,
+      "start": 1607,
+      "length": 91,
+      "end": 1697
+    },
+    {
+      "pc": 2529,
+      "seed": 120,
+      "start": 789,
+      "length": 79,
+      "end": 867
+    },
+    {
+      "pc": 853,
+      "seed": 59,
+      "start": 832,
+      "length": 10,
+      "end": 841
+    }
+  ],
+  "control": [
+    "pc2530: 50 <= 48 -> false",
+    "pc2531: jump -> pc3939",
+    "pc3939: R37 = 841",
+    "pc3940: reusable hub -> pc842",
+    "pc842 lazy rewrite -> opcode30, threshold R88 <= 50",
+    "50 <= 50 -> true -> pc853"
+  ],
+  "child_call": {
+    "pc837": "lazy rewrite -> opcode22; R1 = R50",
+    "pc838": "lazy rewrite -> opcode71; call R1() and discard result",
+    "child_register": 50,
+    "bound_child_seed": 339
+  },
+  "transition": {
+    "pc839": "mode233 opcode77 pair-store",
+    "effect": [
+      "R88 = 29",
+      "R37 = 2408"
+    ],
+    "pc841": "lazy rewrite -> opcode9; return via reusable hub to pc2409",
+    "next_selector": 29
+  },
+  "interpretation": "Selector50 is a success-arm bootstrap block: it opens three encoded regions, invokes the previously bound child seed339, then transitions deterministically to selector29."
+}
