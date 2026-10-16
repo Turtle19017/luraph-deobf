@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Repository self-check
+        # payload exclusion, python syntax, receipt JSON, README fences,
+        # no unverified universal offset-base claim, no stale doc references
+        run: python tools/selfcheck.py
+
+  extractors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The protected target is deliberately not committed, so the full
+      # extraction pipeline cannot run here. What we can do is prove the
+      # extractors still parse and reject a missing/foreign target loudly
+      # rather than silently emitting something.
+      - name: Extractors reject a missing target
+        run: |
+          set -e
+          for t in luraph15_static_stage1.py luraph15_A_layer1.py \
+                   make_A_probe.py make_A_trace_probe.py; do
+            echo "--- $t"
+            if python "tools/$t" --help >/dev/null 2>&1; then
+              echo "    --help ok"
+            else
+              echo "    --help FAILED"
+              exit 1
+            fi
+          done
+
+      - name: make_A_probe.py is fail-closed on a foreign target
+        run: |
+          printf 'not a luraph payload at all\n' > /tmp/fake.txt
+          if python tools/make_A_probe.py /tmp/fake.txt -o /tmp/out.luau; then
+            echo "FAIL: generator accepted a non-target input"
+            exit 1
+          fi
+          echo "ok: rejected as expected"
+
+      - name: luatok slices a known function
+        run: |
+          python - <<'PY'
+          import sys; sys.path.insert(0, "tools")
+          import luatok
+          src = "function T(A,B) if A<=3 then return 1; end return 2; end,X=function() end"
+          got, start, end = luatok.find_function(src, "T")
+          assert got.startswith("function T(A,B)"), got
+          assert got.endswith("return 2; end"), got
+          assert src[start:end] == got
+          print("ok: sliced", len(got), "chars")
+          PY

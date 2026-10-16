@@ -26,28 +26,26 @@ The repository tracks only analysis artifacts, deterministic extractors, probes,
 
 ## Layout
 
-```
-text
+```text
   docs/001-stage1-base85.md
   docs/002-j9-loader.md
   docs/003-A-replay-layer1.md
   docs/004-runtime-probe.md
   docs/005-A-static-chain-correction.md
   docs/005-multiblock-lcg.md
-  docs/006-runtime-harness.md              runtime harness (Luau CLI), probe gotchas, srcoff base correction
+  docs/006-runtime-harness.md              runtime harness (Luau CLI), probe gotchas, scoped offset-base claim
   tools/build_and_run_probe.py             assemble a harness and run it under a Luau CLI
   tools/derive_lcg_manifest.py
   tools/extract_lcg_blocks.py
+  tools/luatok.py                          minimal Lua slicer used to isolate handlers
   tools/luraph15_A_layer1.py
   tools/luraph15_static_stage1.py
   tools/make_A_probe.py
-  tools/make_A_probe_local.py              probe generator, anchors corrected for this build
   tools/make_A_trace_probe.py
-  tools/make_offsets_probe.py              probe: print each LCG-XOR block source offset once
-  tools/map_level3.py                      structure of the third interpreter level
+  tools/map_level3.py                      exploratory mapper for the third interpreter level
   tools/roblox_shim.luau                   minimal Roblox globals for out-of-Roblox execution
   tools/run_luau_capture.py                runner that keeps output across timeouts
-  tools/verify_block1_offset_base.py       fail-closed check that stage1_offset = srcoff + 1274
+  tools/verify_block1_offset_base.py       locate block 1 by digest; derives (not asserts) its offset base
   receipts/luraph_A_entry164_layer1.receipt.json
   receipts/luraph_A_lcg_blocks.trace.json
   receipts/luraph_stage1.receipt.json
@@ -108,9 +106,14 @@ the Roblox namespace objects it resolves dynamically. See
 python tools/verify_block1_offset_base.py luraph_stage1.bin
 ```
 
-This asserts `stage1_offset = srcoff + 1274` and re-derives the block-1 SHA-256,
-exiting non-zero on mismatch. Using `srcoff` directly produces output whose
-entropy still sits at ~7.99 -- a plausible-looking result that is entirely wrong.
+This searches `stage1.bin` for the offset whose decryption reproduces the block-1
+digest, then reports the base that offset implies (`1274` for this sample). It does
+not assert that constant: it is fitted from **block 1 alone** and is not established
+for the other ten blocks, whose decode source buffer may differ. Exits non-zero when
+no offset reproduces the digest.
+
+Using `srcoff` with no correction at all produces output whose entropy still sits at
+~7.99 -- a plausible-looking result that is entirely wrong.
 
 ## Scope
 
