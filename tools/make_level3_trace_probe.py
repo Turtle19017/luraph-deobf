@@ -89,8 +89,9 @@ def main() -> int:
         "print('[L3TAIL]','run',B.__l3runs,'n',__l3n,'states',__l3buf);"
         + PAD +
         "__l3buf='';end;"
-        "print('[L3TERM]','run',B.__l3runs,'n',__l3n);"
+        "if __l3trace then print('[L3TERM]','run',B.__l3runs,'n',__l3n);"
         + PAD +
+        "end;"
         "return V;end;"
     )
     src = replace_once(src, UP_TERMINAL, terminal_new, "up terminal")
