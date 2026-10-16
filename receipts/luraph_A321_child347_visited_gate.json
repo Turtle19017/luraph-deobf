@@ -92,7 +92,12 @@
     ],
     "canonical_pseudocode": "R113[arg1] = true; local result = R113[arg2]; R113[arg1] = nil; return result",
     "return_value": "parent R113[arg2] as observed before clearing arg1",
-    "interpretation": "temporary visited/reentrancy membership probe over parent R113"
+    "interpretation": "temporary visited/reentrancy membership probe over parent R113",
+    "equality_collapse": {
+      "precondition": "captured R113 is empty at call entry except for child347's temporary mark",
+      "result": "R10(arg1,arg2) is truthy exactly when arg2 addresses the same temporary key as arg1",
+      "canonical": "same-key / identity equality probe, with falsy-key handling via the captured R80 true<->false map"
+    }
   },
   "control_facts": {
     "entry_args": "mode215 pc20 copies two varargs to R37/R38",
@@ -101,8 +106,48 @@
     "terminal": "mode54 pc134 has opcode48 and returns R37, which contains the previously read R113[arg2]"
   },
   "root_gate_implication": {
-    "selector141": "not R10(R2,R121) == not R113[R121] at the instant of the probe",
-    "selector29": "R88 = not R10(R2,R86) == not R113[R86] at the instant of the probe",
+    "selector141": "not R10(R2,R121) == (R2 ~= R121); retry while child297 yields the R121 sentinel, exit when it yields a different value",
+    "selector29": "R88 = not R10(R2,R86) == (R2 ~= R86) before the later R177 mega-call",
     "remaining_question": "establish whether R113[R121] or R113[R86] can be persistently set by any other reachable helper before these calls"
+  },
+  "parent_R113_reachability_proof": {
+    "initialization": "pc4080 mode233 opcode39: R113 = {}",
+    "direct_root_references_before_selector141": [
+      "offline replay of all promoted bulk-XOR layers from pc4080 through pc4194 finds register 113 only at its pc4080 creation site"
+    ],
+    "other_child_captures_before_gate": {
+      "seed281": [
+        50,
+        80,
+        10
+      ],
+      "seed339": [],
+      "seed79": [
+        126
+      ],
+      "seed355": [
+        129,
+        128,
+        126,
+        122,
+        124
+      ],
+      "seed331": [
+        128,
+        126,
+        119,
+        114,
+        125,
+        122,
+        116,
+        118,
+        124
+      ],
+      "seed297": [
+        121,
+        86
+      ]
+    },
+    "conclusion": "No other reachable helper before the selector141 probe captures R113. Child347's own mark is cleared before return, so R113 is empty again after each call."
   }
 }
