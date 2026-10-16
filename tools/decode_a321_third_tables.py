@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Decode the post-second scalar and third count-sized integer table.
+"""Decode the two post-second scalars, third count-sized table, and phase4 count.
 
-Source-derived layout for the known A321 corpus:
+Corrected source-derived layout for the known A321 corpus:
 
   header
   first_int_table[count]
@@ -10,35 +10,20 @@ Source-derived layout for the known A321 corpus:
   meta5
   secondary_integer
   second_int_table[count]
-  post_second_scalar
+  post_second_scalar_a
+  post_second_scalar_b
   third_int_table[count]
-  phase4_count_u32
+  phase4_record_count_u32
   ...
 
-For the current eleven runtime-verified objects, post_second_scalar is encoded
-in one byte. The source path is:
+Important correction:
+state50 reads scalar A. State503 then reads the first limb of scalar B. State412
+is reached only after scalar B has been fully decoded; it then allocates two
+count-sized tables and starts the third-table loop. Therefore scalar B is NOT
+the first entry of the third table.
 
-  second table finishes
-    495 -> 404 -> 50
-
-  state50 reads the scalar first limb
-    <128 -> 325 -> 503 -> 4 -> 412
-
-  state412 stores the scalar in the object, allocates two tables of size count,
-  and creates a count-bound loop descriptor.
-
-  third table loop:
-    36  -> loop controller
-    401 -> read first serialized-integer limb
-    ... -> 1/2/3/4-byte decoder
-    343 -> store value[index]
-    36  -> repeat
-
-  when the loop ends:
-    36 -> 51 -> 55
-
-  state55 then reads one little-endian u32 from the current cursor. That value
-  is reported as phase4_count_u32 but this tool does not parse phase 4 further.
+For the current corpus, scalar A is known from the second-table receipt to be
+one byte wide. Scalar B may use the same 1/2/3/4-byte integer grammar.
 
 Inputs are verified against receipts/luraph_A321_plaintexts.runtime.json.
 """
@@ -68,9 +53,32 @@ def parse_n_ints(data: bytes, pos: int, count: int) -> tuple[list[int], list[int
     return values, widths, pos
 
 
+def scalar_b_state_path(data: bytes, pos: int) -> tuple[int, int, int, list[int]]:
+    value, end, width = decode_one(data, pos)
+    b0 = data[pos]
+    if width == 1:
+        if b0 >= 128:
+            raise ValueError("width1 scalar_b has high first byte")
+        path = [503, 4, 412]
+    elif width == 2:
+        if not (b0 >= 128 and data[pos + 1] < 128):
+            raise ValueError("width2 scalar_b threshold pattern mismatch")
+        path = [503, 435, 327, 412]
+    elif width == 3:
+        if not (b0 >= 128 and data[pos + 1] >= 128 and data[pos + 2] < 128):
+            raise ValueError("width3 scalar_b threshold pattern mismatch")
+        path = [503, 435, 305, 116, 412]
+    elif width == 4:
+        if not (b0 >= 128 and data[pos + 1] >= 128 and data[pos + 2] >= 128):
+            raise ValueError("width4 scalar_b threshold pattern mismatch")
+        path = [503, 435, 305, 372, 412]
+    else:
+        raise ValueError(f"unexpected scalar_b width {width}")
+    return value, end, width, path
+
+
 def verified_prefix_to_second_end(data: bytes) -> tuple[int, int]:
     _, count = derive_count(data)
-
     _, _, first_end = parse_n_ints(data, TABLE_START, count)
 
     tag, tag_end, tag_width = decode_one(data, first_end)
@@ -136,19 +144,24 @@ def main() -> int:
         except (ValueError, IndexError) as e:
             raise SystemExit(f"FAIL: block {index} prefix/second-table: {e}") from e
 
-        # Current corpus takes state50 -> 325 -> 503 -> 4 -> 412.
         try:
-            scalar, scalar_end, scalar_width = decode_one(data, second_end)
+            scalar_a, scalar_a_end, scalar_a_width = decode_one(data, second_end)
         except (ValueError, IndexError) as e:
-            raise SystemExit(f"FAIL: block {index} post-second scalar: {e}") from e
+            raise SystemExit(f"FAIL: block {index} scalar_a: {e}") from e
 
-        if scalar_width != 1:
+        if scalar_a_width != 1:
             raise SystemExit(
-                f"FAIL: block {index} post-second scalar width {scalar_width} != 1; "
-                "current source proof for phase-3 entry is scoped to the observed width-1 path"
+                f"FAIL: block {index} scalar_a width {scalar_a_width} != 1; "
+                "current corpus evidence fixes this field to the width-1 path"
             )
 
-        third_start = scalar_end
+        try:
+            scalar_b, third_start, scalar_b_width, scalar_b_path = (
+                scalar_b_state_path(data, scalar_a_end)
+            )
+        except (ValueError, IndexError) as e:
+            raise SystemExit(f"FAIL: block {index} scalar_b: {e}") from e
+
         try:
             values, widths, third_end = parse_n_ints(data, third_start, count)
         except (ValueError, IndexError) as e:
@@ -156,7 +169,7 @@ def main() -> int:
 
         if third_end + 4 > len(data):
             raise SystemExit(
-                f"FAIL: block {index} lacks 4-byte phase4 count after third table"
+                f"FAIL: block {index} lacks phase4 record-count u32 after third table"
             )
 
         phase4_count = int.from_bytes(data[third_end:third_end + 4], "little")
@@ -173,13 +186,21 @@ def main() -> int:
             "object_sha256": digest,
             "table_count": count,
             "second_table_end": second_end,
-            "post_second_scalar": {
+            "post_second_scalar_a": {
                 "offset": second_end,
-                "end_offset": scalar_end,
-                "value": scalar,
-                "width": scalar_width,
-                "encoding_hex": data[second_end:scalar_end].hex(),
-                "observed_state_path": [50, 325, 503, 4, 412],
+                "end_offset": scalar_a_end,
+                "value": scalar_a,
+                "width": scalar_a_width,
+                "encoding_hex": data[second_end:scalar_a_end].hex(),
+                "source_path_prefix": [50, 325, 503],
+            },
+            "post_second_scalar_b": {
+                "offset": scalar_a_end,
+                "end_offset": third_start,
+                "value": scalar_b,
+                "width": scalar_b_width,
+                "encoding_hex": data[scalar_a_end:third_start].hex(),
+                "state_path": scalar_b_path,
             },
             "third_table_start": third_start,
             "third_table_end": third_end,
@@ -194,7 +215,7 @@ def main() -> int:
             "values_u64le_sha256": sha256(packed),
             "first16_values": values[:16],
             "last16_values": values[-16:],
-            "phase4_count_u32": {
+            "phase4_record_count_u32": {
                 "offset": third_end,
                 "end_offset": phase4_start,
                 "value": phase4_count,
@@ -206,12 +227,13 @@ def main() -> int:
         })
 
     result = {
-        "schema": "luraph-deobf.a321-third-int-tables.v1",
+        "schema": "luraph-deobf.a321-third-int-tables.v2",
         "block_count": len(rows),
         "total_object_bytes": sum(r["object_size"] for r in rows),
         "total_third_table_entries": sum(r["table_count"] for r in rows),
         "source_path": {
-            "post_second_scalar": "50(U)->325(Ey)->503(lW)->4(s)->412(nW)",
+            "scalar_a": "495->404->50; observed width1 then 325->503",
+            "scalar_b": "503 begins a second serialized integer; all widths converge at 412",
             "allocation": "412(nW): two table.create(count)",
             "loop": "36(T)",
             "read_first_limb": "401(vW)",
