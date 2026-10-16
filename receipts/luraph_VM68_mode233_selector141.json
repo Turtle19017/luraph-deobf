@@ -126,7 +126,19 @@
     ],
     "branch_pc": 4198,
     "branch_semantic": "if R1 then jump base 4169 else jump base 4208",
-    "dependency": "R10 is the previously constructed child seed347; R2 comes from child297. The branch value is a real runtime child-return dependency."
+    "dependency": "R10 is the previously constructed child seed347; R2 comes from child297. The branch value is a real runtime child-return dependency.",
+    "resolved": {
+      "R121": 1464316551,
+      "R86": 1791364062,
+      "child297_sequence": [
+        "R121",
+        "R86",
+        "nil/no value"
+      ],
+      "child347_semantic": "same-key equality",
+      "first_iteration": "R2=R121 -> equal -> post-not false -> retry",
+      "second_iteration": "R2=R86 -> R86~=R121 -> post-not true -> success arm"
+    }
   },
   "true_arm": {
     "path": [
@@ -155,10 +167,11 @@
     "true_arm_next_selector": 50,
     "false_arm_next_selector": 141
   },
-  "interpretation": "Selector141 is a retry/validation loop. A successful/truthy post-negation gate exits to selector50; the other arm cleans up captures and re-enters selector141.",
+  "interpretation": "Selector141 is a deterministic two-sentinel retry loop: the first resume retries on R121, the second resume yields distinct R86 and exits to selector50.",
   "frontier": {
-    "success_path_selector": 50,
-    "actual_runtime_arm": "OPEN until child seed347/child297 return semantics are lifted or sampled",
-    "next_static_work": "lift selector50 success arm and/or child seed347 gate helper"
+    "actual_runtime_arm": "RESOLVED",
+    "iteration_count_before_exit": 2,
+    "deterministic_exit_selector": 50,
+    "evidence": "proto150/proto208 are distinct non-nil int32 constants; child297 yields them in that order"
   }
 }
