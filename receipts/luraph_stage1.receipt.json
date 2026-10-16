@@ -1,0 +1,38 @@
+{
+  "input": "/mnt/data/script.txt",
+  "input_size": 656604,
+  "input_sha256": "02dc0c6a922796ad4773cbd051745225e4d6bf84d61c9b8c666be71b57f58443",
+  "y9_length": 479491,
+  "magic": "LPH%",
+  "encoded_length_after_magic": 479487,
+  "j9": "[ -\"x-~]",
+  "m9": {
+    "y": "\\gUd<",
+    "~": "lt6d>",
+    "{": "He_:J",
+    "}": "trt:,",
+    " ": "*2d:f",
+    "z": "trAit",
+    "\"": "_P]Y#",
+    "!": "R\\Q>;",
+    "x": "lDht`",
+    "|": "X/@9h"
+  },
+  "gsub_replacement_count": 32,
+  "post_gsub_length": 479615,
+  "post_gsub_sha256": "ef6e0abe0c84a503a290b5a881949b6a36742e62fb3831ab82e6b6c2cf505aca",
+  "alphabet_size": 85,
+  "alphabet_ord_min": 35,
+  "alphabet_ord_max": 119,
+  "groups_5_to_4": 95923,
+  "decoder_weights_by_input_index": [
+    85,
+    7225,
+    52200625,
+    1,
+    614125
+  ],
+  "decoded_size": 383692,
+  "decoded_sha256": "108da67ce0920931a4896896927fa127816bb9980d9fec2518bcad8ed472b2ec",
+  "decoded_head_hex": "ca338124bf8303c3e0011bc2c301bec6038ae702d4f6019dee01d6a304d9c9048f830493be02d7b204bf8d03ecb80385ba02f6aa038eb904e8fdce37f78d0308"
+}
