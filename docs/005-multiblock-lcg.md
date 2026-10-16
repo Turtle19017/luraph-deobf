@@ -89,57 +89,59 @@ The current model contains three distinct dispatcher layers:
 
 The level-3 closure contains the large family of micro-handlers such as `Ap`, `wp`, `vp`, `sp`, `op`, ... `z9`.
 
-## Source offsets can be derived offline
+## Source-buffer provenance correction
 
-A new runtime run is **not required** merely to recover the eleven block source offsets if the J9 handoff artifacts are still available.
+The earlier version of this report assumed all eleven observed A99 invocations
+could be reconstructed from one outer J9 `z[7]` buffer. Runtime evidence now
+disproves that assumption.
 
-For each observed `seed_in`, `z4[seed_in]` points at the serialized block record. The source path before A99 is:
-
-```text
-Gy(245)
-  ptr = z4[seed] + 1
-  read b0
-    b0 < 128  → 462 → 99
-    b0 >=128 → 405, read b1
-      b1 <128  → 13 → 99
-      b1 >=128 → 439, read b2 → 300 → 99
-```
-
-The exact length formulas are:
+The verified outer J9 `z[7]` buffer is:
 
 ```text
-1 byte: size = b0
-
-2 byte: size = 128*(b0-128) + b1
-
-3 byte: size = 128*(b0-128) + (b1-128) + 16384*b2
+stage1[1274 : 1274+79999]
+SHA-256 158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891
 ```
 
-The plaintext source starts immediately after that 1/2/3-byte length header.
+It reproduces block #1 exactly at runtime `srcoff=35915`:
 
-`tools/derive_lcg_manifest.py` implements this path and fails closed if:
+```text
+seed_in = 164
+size    = 20936
+first plaintext byte = 1
+SHA-256 = ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e
+```
 
-- a seed is missing from `z4`,
-- a parsed size differs from the 11-block runtime census,
-- a fourth length limb is required, or
-- a block range exceeds the source buffer.
+Applying the ten other runtime `srcoff` values to this same verified buffer
+does **not** reproduce the runtime observation `[A321] first=1`. Their
+candidate first plaintext bytes are:
 
-Example:
+```text
+#2  79
+#3  188
+#4  230
+#5  242
+#6  40
+#7  70
+#8  179
+#9  129
+#10 201
+#11 124
+```
+
+Therefore the universal-single-buffer hypothesis is rejected. The other ten
+A99 invocations require their own source-buffer provenance/runtime context.
+Do not generalize the block-1 `+1274` stage1 mapping.
+
+Two tools encode this correction:
 
 ```bash
-python tools/derive_lcg_manifest.py \
-  luraph_j9_handoff.json \
+python tools/recover_j9_z7_slice.py luraph_stage1.bin -o luraph_j9_z_7.bin
+
+python tools/audit_a99_source_buffers.py \
   luraph_j9_z_7.bin \
-  -o luraph_A_lcg_manifest.json
+  --json luraph_A99_z7_audit.json
 ```
 
-Then all eleven blocks can be reconstructed fully offline:
-
-```bash
-python tools/extract_lcg_blocks.py \
-  luraph_j9_z_7.bin \
-  --manifest luraph_A_lcg_manifest.json \
-  --expect-known-sample
-```
-
-The A99 runtime probe now also logs `src=J/q` as an independent cross-check, but it is no longer required for primary offset derivation.
+`tools/derive_lcg_manifest.py` now defaults to the verified block-1 seed only.
+Its `--all-observed` mode is explicitly diagnostic: parsing a plausible record
+inside one candidate buffer is not proof that runtime used that buffer.
