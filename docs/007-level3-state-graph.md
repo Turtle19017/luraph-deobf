@@ -1,0 +1,161 @@
+# 007 — Exact level-3 state map and static successor graph
+
+## Result
+
+The third interpreter can now be mapped without guessing binary-search "group"
+counts and without executing the target.
+
+A block-aware parser walks the nested `if/elseif/else/end` tree inside the
+`c[B.ep]` closure built by `B:T`. It then maps the closure argument `t` into the
+formal parameter used by each micro-handler and follows that handler's own
+state branch.
+
+For target SHA-256:
+
+```text
+02dc0c6a922796ad4773cbd051745225e4d6bf84d61c9b8c666be71b57f58443
+```
+
+the source-derived result is:
+
+```text
+state domain       0..238   (239 states)
+micro-handlers     73
+exact ranges       73
+entry              t=8 -> B:vp
+terminal state     83
+```
+
+The complete table is committed as:
+
+```text
+receipts/luraph_level3_state_graph.tsv
+```
+
+and the compact machine-readable summary is:
+
+```text
+receipts/luraph_level3_state_graph.summary.json
+```
+
+## Exact ranges
+
+Unlike the earlier 21/38 "bound group" counts, these ranges are semantic: every
+integer state in a range dispatches to that handler.
+
+The start of the map is:
+
+```text
+  0..  2  Ap
+  3..  6  wp
+  7..  9  vp
+ 10.. 13  sp
+ 14.. 16  op
+ 17.. 20  np
+ 21.. 24  kp
+ 25.. 28  fp
+```
+
+and the end is:
+
+```text
+209..211  m9
+212..215  G9
+216..219  U9
+220..223  t9
+224..226  q9
+227..230  x9
+231..234  i9
+235..238  z9
+```
+
+This also fixes the domain boundary: the final open-ended source branch is
+`z9`, but no micro-handler produces a next state above 238. State 238 itself
+returns to state 22.
+
+## Successor extraction
+
+For the ordinary 72 closure leaves, the handler call assigns its first return
+value directly to `t`, so the first return expression is the next state.
+Every reachable first return expression in this sample resolves to either:
+
+- one integer state, or
+- a Luau `condition and A or B` expression where both `A` and `B` are integer
+  states.
+
+Runtime-dependent conditions are conservatively unioned. For example:
+
+```text
+state 7  -> vp -> {111}
+state 8  -> vp -> {204, 210}
+state 9  -> vp -> {150, 222}
+```
+
+Because block 1 starts with byte `0x01`, the `vp` state-8 branch's byte test is
+consistent with choosing state 204, but this report does not promote that edge
+to runtime-observed status.
+
+## The one special closure leaf: `up`
+
+States 81..84 call `B:up`, but its first return is a control code `o`, not the
+next interpreter state:
+
+```text
+o,T,... = B:up(...)
+if o==1 then
+    t,... = T,...
+elseif o==2 then
+    return V
+end
+```
+
+The parser asserts that exact wrapper before using the second return as the next
+state. The resulting semantics are:
+
+```text
+81 -> 70
+82 -> {164, 221}
+83 -> terminal
+84 -> 224
+```
+
+Treating the first `up` return as `t` would incorrectly create edges to states 1
+and 2.
+
+## Static reachability
+
+Starting from the real entry state `8` and unioning every runtime-dependent
+successor gives an over-approximation containing 236 of 239 states.
+
+The three states not reachable even in that over-approximation are:
+
+```text
+78, 156, 169
+```
+
+This does **not** mean the other 236 states are observed at runtime. It means
+only that source control flow does not rule them out. Conversely, the three
+missing states have no path from entry 8 under the extracted successor graph.
+
+## Reproduce
+
+```bash
+python tools/level3_state_graph.py script.txt \
+  --json level3_state_graph.json
+```
+
+The tool is fail-closed for the known sample SHA unless
+`--allow-foreign-sha` is supplied. It also fails if:
+
+- the 73-handler census changes,
+- a dispatch leaf stops assigning the current state in the expected way,
+- a successor expression cannot be reduced to integer state choices,
+- the `B:up` wrapper changes, or
+- a successor leaves the derived state domain.
+
+## What this unlocks
+
+The level-3 dispatcher no longer needs a runtime trace merely to answer
+"which handler owns state N?" The next useful step is semantic lifting of the
+states actually exercised while parsing the verified block-1 plaintext, using
+this table as the control-flow backbone.

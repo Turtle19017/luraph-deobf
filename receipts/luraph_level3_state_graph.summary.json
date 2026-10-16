@@ -1,0 +1,29 @@
+{
+  "schema": "luraph-deobf.level3-state-graph-summary.v1",
+  "target_sha256": "02dc0c6a922796ad4773cbd051745225e4d6bf84d61c9b8c666be71b57f58443",
+  "source_only": true,
+  "entry_state": 8,
+  "entry_handler": "vp",
+  "state_domain": {
+    "min": 0,
+    "max": 238,
+    "count": 239
+  },
+  "micro_handler_count": 73,
+  "exact_range_count": 73,
+  "possibly_reachable_from_entry_count": 236,
+  "not_reachable_even_in_static_overapprox": [
+    78,
+    156,
+    169
+  ],
+  "terminal_states": [
+    83
+  ],
+  "trust": {
+    "state_to_handler": "source-exact",
+    "successor_sets": "source-derived overapproximation; runtime-dependent conditions unioned",
+    "reachability": "overapproximation from entry state 8"
+  },
+  "state_table": "receipts/luraph_level3_state_graph.tsv"
+}
