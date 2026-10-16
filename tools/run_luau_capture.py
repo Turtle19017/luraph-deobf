@@ -10,6 +10,15 @@ import argparse, io, os, signal, subprocess, sys, threading, time
 
 
 def main():
+    # Windows consoles may default to cp1252. Captured Luau output is decoded
+    # as UTF-8 with replacement, so make our own diagnostic printing equally
+    # robust instead of crashing on U+FFFD or other non-CP1252 characters.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser()
     ap.add_argument("luau")
     ap.add_argument("target")
@@ -63,7 +72,7 @@ def main():
           f"{n[0]:,} lines, {len(txt):,} chars -> {args.out}")
 
     print("\n=== markers ===")
-    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[runner]"):
+    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
         hits = [l for l in lines if l.startswith(pat)]
         if hits:
             for h in hits[:4]:
