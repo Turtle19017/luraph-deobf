@@ -106,16 +106,36 @@ The source/data path continues deterministically at least through:
 → 167(_) → 46(G) → 229(Sy) → 10(o) → 328(Ey) → 237(Ty)
 ```
 
-At offsets `4500..4504` the bytes are:
+At offsets `4500..` the bytes begin:
 
 ```text
-81 57 14 19 a2
+81 57 14 19 a2 65 ...
 ```
 
-The path decodes `81 57` to integer `215`, updates metadata/index slots in `q[...]`, and
-then state `237` allocates another pair of tables using the still-live count `4474`.
-This is the next deserializer phase; its semantics are not yet promoted beyond the
-source/data steps above.
+The path decodes `81 57` to integer `215`, then reads the two low metadata
+bytes `14 19`. State `10(o)` then starts another serialized integer at
+`a2 65`.
+
+A previous interpretation incorrectly sent `a2` directly to state 328. The
+source condition is:
+
+```lua
+not(128 > first_byte) and 425 or 328
+```
+
+so `a2 >= 128` goes to state `425`, which reads the second limb `65`.
+Because `65 < 128`, state `88` decodes:
+
+```text
+(0xa2 - 128) * 128 + 0x65 = 4453
+```
+
+and then reaches state `237`.
+
+State `237` allocates another table of size `4474`. The
+`237 -> 495 -> 162 -> ... -> 469 -> 495` loop then decodes exactly 4474 more
+serialized integers. For block #1 this second table starts at offset `4506`
+and ends at offset `10201`.
 
 ## Reproduce
 
