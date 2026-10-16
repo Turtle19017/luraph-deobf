@@ -1,5 +1,5 @@
 {
-  "schema": "luraph-deobf.a321-block1-vm-entry.v1",
+  "schema": "luraph-deobf.a321-block1-serialized-vm-entry.v2",
   "block_index": 1,
   "seed_in": 164,
   "object_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
@@ -23,8 +23,9 @@
         "opcode": 52,
         "H": 0
       },
-      "semantic": "R[12] = current object",
-      "next_pc": 4454
+      "semantic": "vararg load/pack: N=w[pc]=1, p=S[pc]=12; R[12]=table.pack(select(1,...))",
+      "next_pc": 4454,
+      "confidence": "source-exact opcode52 semantics applied to serialized lane tuple; runtime tuple pending AFINAL probe"
     },
     {
       "pc": 4454,
@@ -172,13 +173,30 @@
         "opcode": 23,
         "H": 74
       },
-      "semantic": "self-rewrite/decode instruction: rewrites current lane entries then re-executes this pc",
+      "semantic": "serialized tuple is opcode23. If finalization leaves this tuple unchanged, source arithmetic rewrites this slot in-place before re-execution.",
       "next_pc": "11 after rewrite"
     }
   ],
   "confidence": {
     "dispatch_and_lane_binding": "source-exact",
-    "entry_tuple_values": "verified block1 plaintext parse",
+    "entry_tuple_values": "verified serialized block1 plaintext parse; not yet a finalized runtime-lane observation",
     "opcodes_52_39_32_15_23_semantics": "source-derived from B[68] vm_mode=215 branch"
+  },
+  "scope": "Serialized lane values immediately after offline parse. Final runtime lanes may be mutated by post-fill finalization helper B[3]; finalized snapshot is pending.",
+  "serialized_opcode23_rewrite_candidate": {
+    "input": {
+      "pc": 11,
+      "S": 46,
+      "w": 12326,
+      "opcode": 23,
+      "H": 74
+    },
+    "derived": {
+      "S": 0,
+      "w": 0,
+      "opcode": 1,
+      "H": 37
+    },
+    "note": "Do not promote as runtime path until post-B:A finalized lane snapshot confirms pc11 is unchanged."
   }
 }
