@@ -247,7 +247,7 @@ pc    S    w      opcode H
 4467  22   86     24    0
 4468  97   87     24    0
 4469   8   11     24    0
-4470   0   10     32   19
+4470   0   37     32   19
 4471   0   10     15    0
 ```
 
@@ -277,11 +277,25 @@ Source semantics for the executed slots are:
   consumes slots 4466..4469
 
 4470 opcode 32
-  R[10] = 19
+  R[37] = 19
 
 4471 opcode 15
   sets pc base to lane_w[4471] = 10
   normal loop increment makes next executed pc = 11
+
+At pc 11, opcode 23 rewrites the serialized tuple to:
+
+```text
+S=0
+w=0
+opcode=1
+H=37
+```
+
+The rewritten opcode 1 performs an indirect jump through `R[37]`. Because
+pc4470 has just set `R[37]=19`, the next executed slot becomes pc20 after the
+common pc increment. This closes the first bootstrap jump without any unknown
+register dependency.
 ```
 
 The four bulk-move groups are:
