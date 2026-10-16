@@ -1,0 +1,76 @@
+{
+  "schema": "luraph-deobf.a321-child268-captures.v1",
+  "child": {
+    "seed_in": 268,
+    "destination_register": 85,
+    "construction_pc": 1227,
+    "capture_descriptor_companion": "I[1227]",
+    "capture_proto": 135
+  },
+  "proto135": {
+    "z4_cursor": 25061,
+    "tag_hex": "02",
+    "encrypted_payload_size": 16,
+    "nested_codec": {
+      "seed0": 228,
+      "mult": 93,
+      "inc": 155,
+      "xor": 93
+    },
+    "decoded_hex": "08825181418235823d82398241814929",
+    "decoded_serialized_integers": [
+      8,
+      337,
+      193,
+      309,
+      317,
+      313,
+      321,
+      201,
+      41
+    ]
+  },
+  "capture_descriptor_decode": {
+    "count": 8,
+    "packing": "descriptor = (register_index << 2) | kind",
+    "pairs": [
+      {
+        "kind": 1,
+        "register": 84
+      },
+      {
+        "kind": 1,
+        "register": 48
+      },
+      {
+        "kind": 1,
+        "register": 77
+      },
+      {
+        "kind": 1,
+        "register": 79
+      },
+      {
+        "kind": 1,
+        "register": 78
+      },
+      {
+        "kind": 1,
+        "register": 80
+      },
+      {
+        "kind": 1,
+        "register": 50
+      },
+      {
+        "kind": 1,
+        "register": 10
+      }
+    ],
+    "kind1_semantics": "capture-by-reference cell backed by the parent BR register frame"
+  },
+  "selector107_implication": {
+    "R88_captured": false,
+    "conclusion": "The native-builtin helper R85 does not directly capture parent selector register R88. Therefore the unresolved selector107 return-to-pc2409 behavior should not be explained by a direct R85->R88 capture mutation."
+  }
+}
