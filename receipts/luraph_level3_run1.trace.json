@@ -35,7 +35,14 @@
     "interpretation": "not a zero-state observation: state tracing and __l3n are enabled only for run 1"
   },
   "buffer_identity": {
-    "status": "not-yet-proven",
-    "note": "runtime buflen 79999 matches the known J9 z[7] buffer length; verify candidate bytes at cursor 63037 before promoting identity"
+    "status": "byte-content-consistent-with-verified-outer-j9-z7",
+    "candidate_source": "stage1[1274:1274+79999]",
+    "candidate_size": 79999,
+    "candidate_sha256": "158c17bfdd79cb23c036639223a730d9c8d2c4940cb07cbfb31aa97551b64891",
+    "runtime_cursor": 63037,
+    "runtime_byte": 45,
+    "candidate_byte_at_cursor": 45,
+    "stage1_absolute_offset": 64311,
+    "note": "Length and cursor-byte match the previously verified J9 z[7] byte copy. This establishes byte-content consistency, not runtime object/pointer identity."
   }
 }
