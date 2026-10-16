@@ -1,0 +1,221 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector107-buffer-continuation.v1",
+  "head": "a548655d86c165a8d9fa9e4feb69f686ed8fc899",
+  "selector": 107,
+  "entry_context": "continuation after existing selector107 prefix in luraph_VM68_native_builtin_registration.v1",
+  "deterministic_path": [
+    {
+      "pc": 1577,
+      "semantic": "R1 = B[117] = buffer.readu8"
+    },
+    {
+      "pc": 1578,
+      "semantic": "R85(R1, V[1578])",
+      "string_proto": 366,
+      "string": "readu8"
+    },
+    {
+      "pc": 1579,
+      "semantic": "R1 = B[80] = buffer.readi16"
+    },
+    {
+      "pc": 1580,
+      "semantic": "opcode34 lazy repair",
+      "proto": 397,
+      "xor_key": 228
+    },
+    {
+      "pc": 1581,
+      "semantic": "R85(R1, V[1581])",
+      "string_proto": 397,
+      "string": "readi16"
+    },
+    {
+      "pc": 1582,
+      "semantic": "opcode82 bulk XOR",
+      "seed": 113,
+      "start": 639,
+      "length": 26,
+      "end": 664
+    },
+    {
+      "pc": 1583,
+      "semantic": "R37 = 654"
+    },
+    {
+      "pc": 1584,
+      "semantic": "jump via reusable pc49..59 hub -> next executed pc655"
+    },
+    {
+      "pc": 655,
+      "semantic": "R1 = B[93] = buffer.readu16"
+    },
+    {
+      "pc": 656,
+      "semantic": "opcode34 lazy repair",
+      "proto": 369,
+      "xor_key": 102
+    },
+    {
+      "pc": 657,
+      "semantic": "R85(R1, V[657])",
+      "string_proto": 369,
+      "string": "readu16"
+    },
+    {
+      "pc": 658,
+      "semantic": "R1 = B[72] = buffer.readi32"
+    },
+    {
+      "pc": 659,
+      "semantic": "R85(R1, V[659])",
+      "string_proto": 308,
+      "string": "readi32"
+    },
+    {
+      "pc": 660,
+      "semantic": "R1 = B[24] = buffer.readu32"
+    },
+    {
+      "pc": 661,
+      "semantic": "R37 = 638"
+    },
+    {
+      "pc": 662,
+      "semantic": "jump via reusable hub -> next executed pc639"
+    },
+    {
+      "pc": 639,
+      "semantic": "R85(R1, V[639])",
+      "string_proto": 163,
+      "string": "readu32"
+    },
+    {
+      "pc": 640,
+      "semantic": "R1 = B[23] = buffer.readf32"
+    },
+    {
+      "pc": 641,
+      "semantic": "R85(R1, V[641])",
+      "string_proto": 182,
+      "string": "readf32"
+    },
+    {
+      "pc": 642,
+      "semantic": "R1 = B[10] = buffer.readf64"
+    },
+    {
+      "pc": 643,
+      "semantic": "R85(R1, V[643])",
+      "string_proto": 148,
+      "string": "readf64"
+    },
+    {
+      "pc": 644,
+      "semantic": "R1 = B[111] = buffer.writei8"
+    },
+    {
+      "pc": 645,
+      "semantic": "R37 = 646"
+    },
+    {
+      "pc": 646,
+      "semantic": "jump via reusable hub -> next executed pc647"
+    },
+    {
+      "pc": 647,
+      "semantic": "R85(R1, V[647])",
+      "string_proto": 197,
+      "string": "writei8"
+    },
+    {
+      "pc": 648,
+      "semantic": "R1 = B[2] = buffer.writeu8"
+    },
+    {
+      "pc": 649,
+      "semantic": "R85(R1, V[649])",
+      "string_proto": 328,
+      "string": "writeu8"
+    },
+    {
+      "pc": 650,
+      "semantic": "R1 = B[97] = buffer.writei16"
+    },
+    {
+      "pc": 651,
+      "semantic": "R85(R1, V[651])",
+      "string_proto": 385,
+      "string": "writei16"
+    },
+    {
+      "pc": 652,
+      "semantic": "opcode77 self-rewrite -> opcode24; R31 = B"
+    },
+    {
+      "pc": 653,
+      "semantic": "R37 = 662"
+    },
+    {
+      "pc": 654,
+      "semantic": "jump via reusable hub -> pc663"
+    },
+    {
+      "pc": 663,
+      "semantic": "R37 = 2408"
+    },
+    {
+      "pc": 664,
+      "semantic": "jump via reusable hub -> pc2409 decision root"
+    }
+  ],
+  "string_evidence": {
+    "148": {
+      "result": "readf64",
+      "cursor": 34111
+    },
+    "163": {
+      "result": "readu32",
+      "cursor": 59682
+    },
+    "182": {
+      "result": "readf32",
+      "cursor": 34202
+    },
+    "197": {
+      "result": "writei8",
+      "cursor": 57052
+    },
+    "308": {
+      "result": "readi32",
+      "cursor": 63045
+    },
+    "328": {
+      "result": "writeu8",
+      "cursor": 27517
+    },
+    "366": {
+      "result": "readu8",
+      "cursor": 27209
+    },
+    "369": {
+      "result": "readu16",
+      "repair_xor": 102,
+      "resolved_cursor": 24890
+    },
+    "385": {
+      "result": "writei16",
+      "cursor": 64278
+    },
+    "397": {
+      "result": "readi16",
+      "repair_xor": 228,
+      "resolved_cursor": 63792
+    }
+  },
+  "frontier": {
+    "explicit_selector_write_in_this_block": false,
+    "next_selector": "OPEN",
+    "reason": "No source-closed write to R88 occurs in the lifted main-lane block before return to pc2409. Do not infer a selector transition solely from the return-to-hub shape."
+  }
+}
