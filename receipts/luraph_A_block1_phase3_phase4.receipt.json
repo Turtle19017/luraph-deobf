@@ -1,0 +1,93 @@
+{
+  "schema": "luraph-deobf.block1-phase3-phase4.v1",
+  "object_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "table_count": 4474,
+  "second_table_end": 10201,
+  "post_second_scalar_a": {
+    "offset": 10201,
+    "end_offset": 10202,
+    "value": 21,
+    "width": 1,
+    "encoding_hex": "15"
+  },
+  "post_second_scalar_b": {
+    "offset": 10202,
+    "end_offset": 10203,
+    "value": 31,
+    "width": 1,
+    "encoding_hex": "1f",
+    "state_path": [
+      503,
+      4,
+      412
+    ]
+  },
+  "third_table": {
+    "start": 10203,
+    "end": 15209,
+    "encoded_size": 5006,
+    "entry_count": 4474,
+    "width_histogram": {
+      "1": 3944,
+      "2": 529,
+      "4": 1
+    },
+    "minimum": 0,
+    "maximum": 290696156,
+    "zero_count": 36,
+    "raw_sha256": "03b3e59bca13f62aee87fa9e1e17c93603e1f3be4fa2f83549b37d8bf0445e63",
+    "values_u64le_sha256": "ded6dab83c1f04d69214975d8fc4f53d04a4fa12f339c1a30481002b44bdfd58",
+    "first16_values": [
+      132,
+      60,
+      55,
+      87,
+      103,
+      64,
+      67,
+      117,
+      90,
+      90,
+      23,
+      60,
+      87,
+      66,
+      100,
+      103
+    ],
+    "last16_values": [
+      24,
+      24,
+      24,
+      39,
+      24,
+      24,
+      24,
+      39,
+      24,
+      24,
+      24,
+      32,
+      15,
+      59,
+      32,
+      15
+    ]
+  },
+  "phase4": {
+    "count_offset": 15209,
+    "count_end_offset": 15213,
+    "count_encoding_hex": "00000000",
+    "record_count": 0,
+    "start": 15213,
+    "end": 15213
+  },
+  "next_serialized_integer_preview": {
+    "offset": 15213,
+    "end_offset": 15215,
+    "value": 130,
+    "width": 2,
+    "encoding_hex": "8102"
+  },
+  "correction": "Supersedes the one-scalar boundary that started the third table at 10202 and misread 0f000000 at 15208 as phase4 count 15."
+}
