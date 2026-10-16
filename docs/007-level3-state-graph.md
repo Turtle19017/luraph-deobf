@@ -91,9 +91,10 @@ state 8  -> vp -> {204, 210}
 state 9  -> vp -> {150, 222}
 ```
 
-Because block 1 starts with byte `0x01`, the `vp` state-8 branch's byte test is
-consistent with choosing state 204, but this report does not promote that edge
-to runtime-observed status.
+Runtime tracing later observed the first invocation taking `8 -> 204`, with
+`[L3VP8] byte=45` from a 79,999-byte runtime buffer. That observation is
+consistent with the source condition for state 8, but it is separate runtime
+evidence rather than part of this source-only graph.
 
 ## The one special closure leaf: `up`
 
