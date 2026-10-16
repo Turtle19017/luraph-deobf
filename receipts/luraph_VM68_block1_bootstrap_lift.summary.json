@@ -1,0 +1,166 @@
+{
+  "schema": "luraph-deobf.vm68-block1-bootstrap-lift-summary.v1",
+  "block1_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "slot_count": 4474,
+  "corrected_finalized_fact": "19/19 sampled positive-index bootstrap main-lane tuples match serialized plaintext after fixing pc4470 expected w=37",
+  "milestones": [
+    "mode215 entry pc4453",
+    "pc11 self-rewrite 23->1, indirect through R37",
+    "pc25 sets R37=4441",
+    "pc4451 sets R37=59",
+    "pc66 sets R37=67",
+    "pc75 rewrites to opcode48 and switches mode215->24 at pc42",
+    "mode24 trampoline sets R37=3,12,35 across three passes through pc76",
+    "pc41 switches mode24->54 at pc27",
+    "mode54 pc33 opcode84 XOR-decrypts slots 85..4441 in all four main lanes",
+    "mode54 pc34 rewrites to opcode45 and sets R37=84",
+    "mode54 pc35 rewrites to opcode72; semantic boundary R0=R72(R11)"
+  ],
+  "body_decrypt": {
+    "mode": 54,
+    "pc": 33,
+    "seed_S": 44,
+    "start": 85,
+    "length": 4357,
+    "end": 4441,
+    "rule": "mask=((44 XOR i)&0x7f); XOR mask into S/w/s/H at slot 84+i",
+    "before_u32le_sha256": {
+      "S": "01083987c972a00eeb94f5f3dfb6f0fbc3d80417d957ca7922470cb2181674f4",
+      "w": "24e56ec1ef8daed66bafb9c5f01b290fab2f78e49a310327383e92922c0e065b",
+      "s": "18030a26c115d0afd5372390401778dbedef8f621299de2e48866b82341f8474",
+      "H": "9d2fa48f94c2ba84ba5bf4b975a138702b188525dcc06532d6af4b4c0b19e0a0"
+    },
+    "after_u32le_sha256": {
+      "S": "b90ec9082dc69a72d5621308ebfdb89a4a26e877f562992f0f394d58db08fe9a",
+      "w": "fb47d0d925c0e14a9761973d52628e9193700ef0ec2b33dc19e398a690627ffb",
+      "s": "01a897697dc9182fd073d550bb6d138dd649afc4003f9ba00ebc0ce0af9410c7",
+      "H": "ad6c1f91a4556f73220e03a215aceab82ee44d69ea86d817b2d7daa636ca70e0"
+    },
+    "first16": [
+      {
+        "pc": 85,
+        "S": 0,
+        "w": 76,
+        "s": 2,
+        "H": 26
+      },
+      {
+        "pc": 86,
+        "S": 0,
+        "w": 112,
+        "s": 3,
+        "H": 39
+      },
+      {
+        "pc": 87,
+        "S": 0,
+        "w": 109,
+        "s": 4,
+        "H": 26
+      },
+      {
+        "pc": 88,
+        "S": 0,
+        "w": 120,
+        "s": 5,
+        "H": 39
+      },
+      {
+        "pc": 89,
+        "S": 12686,
+        "w": 75,
+        "s": 58,
+        "H": 20
+      },
+      {
+        "pc": 90,
+        "S": 11,
+        "w": 4349,
+        "s": 92,
+        "H": 84
+      },
+      {
+        "pc": 91,
+        "S": 13454,
+        "w": 1,
+        "s": 3927,
+        "H": 20
+      },
+      {
+        "pc": 92,
+        "S": 1550,
+        "w": 36,
+        "s": 55,
+        "H": 20
+      },
+      {
+        "pc": 93,
+        "S": 89,
+        "w": 51,
+        "s": 72,
+        "H": 11501
+      },
+      {
+        "pc": 94,
+        "S": 90,
+        "w": 48,
+        "s": 18,
+        "H": 13295
+      },
+      {
+        "pc": 95,
+        "S": 91,
+        "w": 1555,
+        "s": 2001,
+        "H": 16311
+      },
+      {
+        "pc": 96,
+        "S": 95,
+        "w": 150,
+        "s": 138,
+        "H": 208
+      },
+      {
+        "pc": 97,
+        "S": 4,
+        "w": 2276,
+        "s": 49,
+        "H": 10544
+      },
+      {
+        "pc": 98,
+        "S": 6,
+        "w": 108,
+        "s": 38,
+        "H": 13874
+      },
+      {
+        "pc": 99,
+        "S": 85,
+        "w": 62,
+        "s": 69,
+        "H": 12853
+      },
+      {
+        "pc": 100,
+        "S": 89,
+        "w": 50,
+        "s": 30,
+        "H": 11117
+      }
+    ]
+  },
+  "stop": {
+    "mode": 54,
+    "pc": 35,
+    "rewritten": {
+      "S": 0,
+      "w": 0,
+      "s": 11,
+      "H": 72
+    },
+    "semantic": "R[0] = R[72](R[11])",
+    "reason": "R72/R11 provenance is not yet source-closed; no guess is promoted beyond this dynamic call."
+  }
+}
