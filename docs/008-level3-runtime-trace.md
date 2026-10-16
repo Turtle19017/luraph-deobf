@@ -66,8 +66,26 @@ python tools/make_level3_trace_probe.py \
   --budget 2048
 ```
 
-Run the generated target with the existing Roblox shim and
-`tools/run_luau_capture.py`/harness workflow from report 006.
+Assemble the harness without executing it through the short-lived builder,
+then use the durable capture runner:
+
+```bash
+python tools/build_and_run_probe.py \
+  /path/to/luau \
+  script_level3_trace.luau \
+  tools/roblox_shim.luau \
+  -o run_level3.luau \
+  --build-only
+
+python tools/run_luau_capture.py \
+  /path/to/luau \
+  run_level3.luau \
+  -o capture_level3.txt \
+  --timeout 300
+```
+
+Using `--build-only` avoids the older builder's `subprocess.run(..., timeout=...)`
+path discarding partial output when the target survives indefinitely.
 
 ## Trust boundary
 
