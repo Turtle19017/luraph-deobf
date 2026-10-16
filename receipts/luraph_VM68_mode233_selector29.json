@@ -1,0 +1,104 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector29.v1",
+  "head": "a087d8c6e422867f50ed0e334adbde606f6e6ebf",
+  "entry": {
+    "register": "R88",
+    "value": 29,
+    "source": "selector50 pc839"
+  },
+  "decision_path": [
+    "pc2409: 29 <= 71 -> true -> pc1151",
+    "pc1151: R9 = (29 <= 35) -> true",
+    "pc1152: branch on R9 -> pc4106",
+    "pc4106: branch on R9 -> pc1139",
+    "pc1139: prior selector28 bulk-XOR site is already rewritten to opcode41/NOP",
+    "pc1140: 29 <= 17 -> false",
+    "pc1141: jump -> pc2164",
+    "pc2164: R37 = 3812; pc2165 -> reusable hub -> pc3813",
+    "pc3813: 29 <= 26 -> false",
+    "pc3814: jump -> pc3553",
+    "pc3553: R37 = 3510; pc3554 -> hub -> pc3511",
+    "pc3511: 29 <= 30 -> true -> pc3244",
+    "pc3244: 29 <= 28 -> false",
+    "pc3245: jump -> pc2798",
+    "pc2798: R37 = 3781; pc2799 -> hub -> pc3782",
+    "pc3782: 29 <= 29 -> true -> pc3235"
+  ],
+  "pre_call_gate": [
+    "pc3235: call R59(R47); R59 is bound child seed325",
+    "pc3236: R2 = R42()",
+    "pc3237: R3 = R86",
+    "pc3238: R1 = R10; R10 is bound child seed347",
+    "pc3239: R1 = R1(R2,R3)",
+    "pc3240: R88 = not R1"
+  ],
+  "reachable_bulk_xor": [
+    {
+      "pc": 3241,
+      "seed": 54,
+      "start": 3784,
+      "length": 15,
+      "end": 3798
+    },
+    {
+      "pc": 3797,
+      "seed": 32,
+      "start": 3784,
+      "length": 13,
+      "end": 3796
+    }
+  ],
+  "post_xor_block": {
+    "pc3784": {
+      "opcode": 21,
+      "tuple": {
+        "S": 21,
+        "w": 156,
+        "s": 177,
+        "H": 50
+      },
+      "semantic": "extend packed argument table and call R177; pack returned values back into R177",
+      "argument_bank": {
+        "function_register": 177,
+        "register_span": "R178..R332",
+        "packed_tail_register": 333,
+        "appended_register_count": 155
+      }
+    },
+    "pc3785": "R37 = 2408",
+    "pc3786": "return through reusable hub to pc2409"
+  },
+  "register_factory_structure": {
+    "static_multi_return_expand_sites": [
+      {
+        "pc": 2150,
+        "opcode": 7,
+        "function_register": 61,
+        "return_destination": "R61..R284",
+        "return_count": 224
+      },
+      {
+        "pc": 3504,
+        "opcode": 7,
+        "function_register": 117,
+        "return_destination": "R117..R206",
+        "return_count": 90
+      },
+      {
+        "pc": 3363,
+        "opcode": 7,
+        "function_register": 155,
+        "return_destination": "R155..R202",
+        "return_count": 48
+      }
+    ],
+    "relevance": "R177 lies inside the nested register banks materialized by the 2150/3504/3363 expansion structure before the selector29 pc3784 mega-call.",
+    "reachability_scope": "The selector29 pc3784 call is source-closed. The exact dynamic provenance/order of every upstream multi-return producer is not yet promoted unless separately observed on the lifted selector path."
+  },
+  "frontier": {
+    "kind": "runtime-dependent call boundary",
+    "dependency": "R1 result from child seed347 gate determines R88 boolean before the bulk-XOR/call block; pc3784 then invokes R177 with a large bootstrap argument bank.",
+    "next_work": "lift child seed347 gate semantics and/or the R177 factory provenance before claiming the post-call selector value"
+  },
+  "interpretation": "Selector29 is a post-registration handoff/gate rather than another simple builtin-registration selector. It combines a child-dependent boolean gate, two final XOR layers, and a large packed call through R177."
+}
