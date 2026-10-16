@@ -1,0 +1,105 @@
+{
+  "schema": "luraph-deobf.a321-block1-phase5-fourth-table.v1",
+  "object_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "table_count": 4474,
+  "phase4": {
+    "record_count": 0,
+    "start": 15213,
+    "end": 15213
+  },
+  "scalar_c": {
+    "offset": 15213,
+    "end_offset": 15215,
+    "value": 130,
+    "width": 2,
+    "encoding_hex": "8102",
+    "state_path": [
+      388,
+      148,
+      498,
+      485
+    ]
+  },
+  "scalar_d": {
+    "offset": 15215,
+    "end_offset": 15216,
+    "value": 68,
+    "width": 1,
+    "encoding_hex": "44",
+    "state_path": [
+      485,
+      199,
+      340
+    ]
+  },
+  "scalar_e": {
+    "offset": 15216,
+    "end_offset": 15217,
+    "value": 29,
+    "width": 1,
+    "encoding_hex": "1d",
+    "state_path": [
+      340,
+      26,
+      129
+    ]
+  },
+  "fourth_table": {
+    "start": 15217,
+    "end": 20931,
+    "encoded_size": 5714,
+    "entry_count": 4474,
+    "width_histogram": {
+      "1": 3240,
+      "2": 1231,
+      "4": 3
+    },
+    "minimum": 0,
+    "maximum": 404839701,
+    "zero_count": 60,
+    "raw_sha256": "f14a8de2dd31217d2dac7536edc68a58808ba59a195c19dc3c1e0e1840e127e7",
+    "values_u64le_sha256": "ee399d3e16043f66b9ff13d3b2e38ed34d43408c476fd9469d14738aadae31d4",
+    "first16_values": [
+      13,
+      20,
+      20,
+      5353,
+      5353,
+      5353,
+      5353,
+      5353,
+      613,
+      361,
+      74,
+      20,
+      5353,
+      5353,
+      5353,
+      5353
+    ],
+    "last16_values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      19,
+      0,
+      84,
+      4471,
+      0
+    ]
+  },
+  "remaining_after_fourth_table": {
+    "offset": 20931,
+    "byte_count": 5,
+    "hex": "00a3bd016d"
+  },
+  "trust_note": "Stops at the proven fourth-table loop exit. The five-byte tail is intentionally not semantically promoted yet."
+}
