@@ -1,0 +1,86 @@
+{
+  "schema": "luraph-deobf.a321-child297-coroutine-sentinels.v1",
+  "provenance": {
+    "outer_proto": 297,
+    "z4_encoded_cursor": 263890203,
+    "cursor_xor": 263872163,
+    "resolved_cursor": 64440,
+    "record_tag_hex": "50",
+    "payload_length": 178,
+    "payload_start": 64443,
+    "payload_repair_xor": 38,
+    "a99_seed_in": 297,
+    "plaintext_size": 178,
+    "plaintext_sha256": "3b8a8420a07b75d33fc327ddfee721868789b6f3ad725f080b54e3cbdbff6497",
+    "plaintext_head16_hex": "01121a011f111b16af8d0218131e1415"
+  },
+  "a321": {
+    "slot_count": 33,
+    "vm_mode": 215,
+    "entry_pc": 22,
+    "stack_size": 10,
+    "dispatch_id": 68,
+    "consumes_object_exactly": true
+  },
+  "construction": {
+    "root_repair_pc": 4188,
+    "root_dispatch_pc": 4189,
+    "destination_register": 2,
+    "capture_descriptor_proto": 212,
+    "captures": [
+      {
+        "kind": 1,
+        "parent_register": 121,
+        "semantic": "capture-by-reference"
+      },
+      {
+        "kind": 1,
+        "parent_register": 86,
+        "semantic": "capture-by-reference"
+      }
+    ]
+  },
+  "bootstrap": {
+    "mode215": [
+      "pc22: R2 = 0",
+      "pc23: R4 = 28",
+      "pc24/pc33: indirect bootstrap -> pc29",
+      "pc29: R5 = (R2 <= 0) = true",
+      "pc30 opcode49 decrypts slots12..21",
+      "pc31 opcode49 decrypts slots1..11",
+      "pc32 branches to pc1"
+    ],
+    "first_yield": [
+      "pc1 lazy rewrite -> opcode28: R7 = B[50] = coroutine.yield",
+      "pc2 lazy rewrite -> opcode7: R9 = capture R121",
+      "pc3 lazy rewrite -> opcode26: coroutine.yield(R121)"
+    ],
+    "second_yield": [
+      "pc4: R7 = coroutine.yield",
+      "pc5: R9 = capture R86",
+      "pc6: coroutine.yield(R86)",
+      "pc7: R2 = 1"
+    ],
+    "post_second_yield": [
+      "pc29 now computes R5 = (1 <= 0) = false",
+      "pc32 routes to mode24 bootstrap",
+      "mode24 pc16/17/18 decrypt small tail regions",
+      "mode24 pc19 false arm routes to pc21",
+      "mode24 pc21 opcode0 switches to mode233 at pc20",
+      "mode233 pc20 opcode10 returns no values"
+    ]
+  },
+  "callable_sequence": {
+    "wrapper": "R42 = coroutine.wrap(child297)",
+    "resume_1": "R121",
+    "resume_2": "R86",
+    "resume_3": "no values / nil in single-assignment context"
+  },
+  "root_implications": {
+    "selector141": [
+      "first iteration: R2=R121 -> child347 equality is true -> not => false -> retry",
+      "second iteration: R2=R86 -> comparison is R86 vs R121"
+    ],
+    "selector29": "later R2 = R42() is the third resume -> nil/no value; child347 gate becomes comparison of nil against R86 before the R177 mega-call"
+  }
+}
