@@ -1,0 +1,108 @@
+{
+  "schema": "luraph-deobf.a321-child347-visited-gate.v1",
+  "provenance": {
+    "outer_proto": 347,
+    "z4_encoded_cursor": 263863475,
+    "cursor_xor": 263872163,
+    "resolved_cursor": 25104,
+    "record_tag_hex": "50",
+    "payload_length": 640,
+    "payload_start": 25107,
+    "payload_repair_xor": 71,
+    "a99_seed_in": 347,
+    "plaintext_sha256": "de0faa1ebe2037d55f0e5215921ca9fd227d1be2f771155b35930c0c299b6214",
+    "exact_runtime_block_identity": {
+      "block_index": 7,
+      "seed_in": 347
+    }
+  },
+  "a321": {
+    "slot_count": 138,
+    "vm_mode": 215,
+    "entry_pc": 20,
+    "stack_size": 41,
+    "dispatch_id": 68,
+    "consumes_object_exactly": true
+  },
+  "construction": {
+    "root_dispatch_pc": 4082,
+    "destination_register": 10,
+    "capture_descriptor_proto": 264,
+    "capture_descriptor": {
+      "decoded_integers": [
+        2,
+        453,
+        321
+      ],
+      "captures": [
+        {
+          "kind": 1,
+          "parent_register": 113,
+          "semantic": "capture-by-reference"
+        },
+        {
+          "kind": 1,
+          "parent_register": 80,
+          "semantic": "capture-by-reference"
+        }
+      ]
+    }
+  },
+  "parent_setup": {
+    "pc4080": "R113 = {}",
+    "pc4093": "R80 = {}",
+    "boolean_flip_population": [
+      {
+        "pc": 4079,
+        "semantic": "R80[I(proto67)] = V(proto74)",
+        "proto67": true,
+        "proto74": false,
+        "effect": "R80[true] = false"
+      },
+      {
+        "pc": 4094,
+        "semantic": "R80[I(proto74)] = V(proto67)",
+        "effect": "R80[false] = true"
+      }
+    ]
+  },
+  "boolean_constants": {
+    "proto67": {
+      "cursor": 13,
+      "tag_hex": "fb",
+      "result": true,
+      "proof": "level3 scalar path 8->210->40->39->4->63; terminal boolean expression evaluates true"
+    },
+    "proto74": {
+      "cursor": 62463,
+      "tag_hex": "fb",
+      "result": false,
+      "proof": "same level3 scalar path; terminal boolean expression evaluates false"
+    }
+  },
+  "helper_semantics": {
+    "call_shape": "R10(arg1,arg2)",
+    "high_level": [
+      "normalize/branch on arg1 truthiness through captured R80 boolean-flip table",
+      "temporarily mark captured R113[arg1] = true",
+      "read result = captured R113[arg2]",
+      "clear captured R113[arg1] = nil",
+      "switch mode215 -> mode54",
+      "mode54 pc134 opcode48 returns the saved result"
+    ],
+    "canonical_pseudocode": "R113[arg1] = true; local result = R113[arg2]; R113[arg1] = nil; return result",
+    "return_value": "parent R113[arg2] as observed before clearing arg1",
+    "interpretation": "temporary visited/reentrancy membership probe over parent R113"
+  },
+  "control_facts": {
+    "entry_args": "mode215 pc20 copies two varargs to R37/R38",
+    "first_boolean_path": "captured R80 is the exact true<->false flip table; both truthiness arms converge before the R113 mark/read/unmark sequence",
+    "final_mode_switch": "mode215 pc136 opcode48 switches to mode54 at pc134",
+    "terminal": "mode54 pc134 has opcode48 and returns R37, which contains the previously read R113[arg2]"
+  },
+  "root_gate_implication": {
+    "selector141": "not R10(R2,R121) == not R113[R121] at the instant of the probe",
+    "selector29": "R88 = not R10(R2,R86) == not R113[R86] at the instant of the probe",
+    "remaining_question": "establish whether R113[R121] or R113[R86] can be persistently set by any other reachable helper before these calls"
+  }
+}
