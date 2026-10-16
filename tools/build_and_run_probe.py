@@ -4,7 +4,7 @@ build_and_run_probe.py - assemble the Roblox-shim + probe harness and execute it
 with a local Luau CLI, then report the [A...] markers.
 
 Usage:
-  python build_and_run_probe.py <luau.exe> <probe.luau> <shim.luau> [-o run.luau]
+  python build_and_run_probe.py <luau.exe> <probe.luau> <shim.luau> [-o run.luau] [--build-only]
 """
 import io, os, re, subprocess, sys, argparse
 
@@ -26,6 +26,8 @@ def main():
     ap.add_argument("shim")
     ap.add_argument("-o", "--out", default="run_probe.luau")
     ap.add_argument("--timeout", type=int, default=600)
+    ap.add_argument("--build-only", action="store_true",
+                    help="assemble the harness but do not execute Luau")
     args = ap.parse_args()
 
     shim = strip_trailing_return(io.open(args.shim, encoding="utf-8").read())
@@ -45,6 +47,9 @@ if type(getfenv) ~= "function" then getfenv = function(...) return _G end end
     with io.open(args.out, "w", encoding="utf-8", newline="\n", errors="surrogateescape") as fh:
         fh.write(src)
     print(f"[build] wrote {args.out}  ({len(src):,} chars)")
+    if args.build_only:
+        print("[build] build-only: Luau execution skipped")
+        return
 
     r = subprocess.run([args.luau, args.out], capture_output=True, text=True,
                        errors="replace", timeout=args.timeout)
@@ -54,7 +59,7 @@ if type(getfenv) ~= "function" then getfenv = function(...) return _G end end
     print(f"[run] exit={r.returncode}  stdout={len(out):,}B  stderr={len(err):,}B")
 
     print("\n=== markers ===")
-    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[runner]"):
+    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
         hits = [ln for ln in out.split("\n") if ln.startswith(pat)]
         for h in hits[:6]:
             print("  " + h)
