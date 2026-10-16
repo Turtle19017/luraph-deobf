@@ -4,7 +4,7 @@ state	handler	state_formal	next_states	terminal
 2	Ap	I	21	false
 3	wp	I	47,165	false
 4	wp	I	13,63	false
-5	wp	I	228	false
+5	wp	I	78,228	false
 6	wp	I	0,206	false
 7	vp	r	111	false
 8	vp	r	204,210	false
@@ -142,7 +142,7 @@ state	handler	state_formal	next_states	terminal
 140	Hp	r	153	false
 141	Np	a	216	false
 142	Np	a	117	false
-143	gp	c	104	false
+143	gp	c	104,169	false
 144	gp	c	217	false
 145	_p	I	133,211	false
 146	_p	I	192	false
@@ -183,7 +183,7 @@ state	handler	state_formal	next_states	terminal
 181	v9	P	195	false
 182	s9	z	121	false
 183	s9	z	9,209	false
-184	o9	P	149	false
+184	o9	P	149,156	false
 185	o9	P	160	false
 186	n9	v	195	false
 187	n9	v	65,99	false
