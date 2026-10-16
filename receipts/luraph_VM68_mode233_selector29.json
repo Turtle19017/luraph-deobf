@@ -96,9 +96,17 @@
     "reachability_scope": "The selector29 pc3784 call is source-closed. The exact dynamic provenance/order of every upstream multi-return producer is not yet promoted unless separately observed on the lifted selector path."
   },
   "frontier": {
-    "kind": "runtime-dependent call boundary",
-    "dependency": "R1 result from child seed347 gate determines R88 boolean before the bulk-XOR/call block; pc3784 then invokes R177 with a large bootstrap argument bank.",
-    "next_work": "lift child seed347 gate semantics and/or the R177 factory provenance before claiming the post-call selector value"
+    "kind": "R177 mega-call boundary",
+    "selector_register_before_call": true,
+    "key_observation": "R88 is boolean true before pc3784; therefore a valid later numeric selector must be produced by the pc3784 call path or another side effect before returning to pc2409.",
+    "next_work": "lift R177 function provenance / pc3784 return and side effects"
   },
-  "interpretation": "Selector29 is a post-registration handoff/gate rather than another simple builtin-registration selector. It combines a child-dependent boolean gate, two final XOR layers, and a large packed call through R177."
+  "interpretation": "Selector29 is a post-registration handoff/gate rather than another simple builtin-registration selector. It combines a child-dependent boolean gate, two final XOR layers, and a large packed call through R177.",
+  "pre_call_gate_resolution": {
+    "child297_resume": "third resume returns no value / nil",
+    "R86": 1791364062,
+    "child347_call": "R10(nil,R86) -> false",
+    "pc3240": "R88 = not false = true",
+    "status": "source-closed before pc3784 mega-call"
+  }
 }
