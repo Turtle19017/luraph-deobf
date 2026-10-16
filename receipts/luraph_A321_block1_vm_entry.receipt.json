@@ -1,0 +1,184 @@
+{
+  "schema": "luraph-deobf.a321-block1-vm-entry.v1",
+  "block_index": 1,
+  "seed_in": 164,
+  "object_sha256": "ecdc76fa288993cd2093564fe9a8b3f50f361dbe8f3282aa977c019e9954857e",
+  "dispatch_id": 68,
+  "vm_mode": 215,
+  "entry_pc": 4453,
+  "stack_size": 130,
+  "instruction_slot_count": 4474,
+  "lanes": {
+    "opcode": "table3 / q[q[10]] / runtime local s",
+    "S": "table1 / q[q[12]]",
+    "w": "table2 / q[q[13]]",
+    "H": "table4 / q[q[8]]"
+  },
+  "entry_sequence": [
+    {
+      "pc": 4453,
+      "tuple": {
+        "S": 12,
+        "w": 1,
+        "opcode": 52,
+        "H": 0
+      },
+      "semantic": "R[12] = current object",
+      "next_pc": 4454
+    },
+    {
+      "pc": 4454,
+      "tuple": {
+        "S": 15,
+        "w": 77,
+        "opcode": 39,
+        "H": 0
+      },
+      "semantic": "bulk move 4 register pairs using slots 4454..4457",
+      "moves": [
+        [
+          15,
+          77
+        ],
+        [
+          88,
+          78
+        ],
+        [
+          43,
+          79
+        ],
+        [
+          72,
+          58
+        ]
+      ],
+      "next_pc": 4458
+    },
+    {
+      "pc": 4458,
+      "tuple": {
+        "S": 87,
+        "w": 48,
+        "opcode": 39,
+        "H": 0
+      },
+      "semantic": "bulk move 4 register pairs using slots 4458..4461",
+      "moves": [
+        [
+          87,
+          48
+        ],
+        [
+          19,
+          50
+        ],
+        [
+          25,
+          80
+        ],
+        [
+          61,
+          10
+        ]
+      ],
+      "next_pc": 4462
+    },
+    {
+      "pc": 4462,
+      "tuple": {
+        "S": 114,
+        "w": 81,
+        "opcode": 39,
+        "H": 0
+      },
+      "semantic": "bulk move 4 register pairs using slots 4462..4465",
+      "moves": [
+        [
+          114,
+          81
+        ],
+        [
+          23,
+          82
+        ],
+        [
+          20,
+          83
+        ],
+        [
+          47,
+          84
+        ]
+      ],
+      "next_pc": 4466
+    },
+    {
+      "pc": 4466,
+      "tuple": {
+        "S": 96,
+        "w": 85,
+        "opcode": 39,
+        "H": 0
+      },
+      "semantic": "bulk move 4 register pairs using slots 4466..4469",
+      "moves": [
+        [
+          96,
+          85
+        ],
+        [
+          22,
+          86
+        ],
+        [
+          97,
+          87
+        ],
+        [
+          8,
+          11
+        ]
+      ],
+      "next_pc": 4470
+    },
+    {
+      "pc": 4470,
+      "tuple": {
+        "S": 0,
+        "w": 10,
+        "opcode": 32,
+        "H": 19
+      },
+      "semantic": "R[10] = 19",
+      "next_pc": 4471
+    },
+    {
+      "pc": 4471,
+      "tuple": {
+        "S": 0,
+        "w": 10,
+        "opcode": 15,
+        "H": 0
+      },
+      "semantic": "set pc base to w[pc]=10; loop increment makes next executed pc=11",
+      "next_pc": 11
+    },
+    {
+      "pc": 11,
+      "tuple": {
+        "S": 46,
+        "w": 12326,
+        "opcode": 23,
+        "H": 74
+      },
+      "semantic": "self-rewrite/decode instruction: rewrites current lane entries then re-executes this pc",
+      "next_pc": "11 after rewrite"
+    }
+  ],
+  "confidence": {
+    "dispatch_and_lane_binding": "source-exact",
+    "entry_tuple_values": "verified block1 plaintext parse",
+    "opcodes_52_39_32_15_23_semantics": "source-derived from B[68] vm_mode=215 branch"
+  }
+}
