@@ -47,44 +47,6 @@
       "semantic": "jump via reusable pc49..59 hub -> next executed pc655"
     },
     {
-      "pc": 655,
-      "semantic": "R1 = B[93] = buffer.readu16"
-    },
-    {
-      "pc": 656,
-      "semantic": "opcode34 lazy repair",
-      "proto": 369,
-      "xor_key": 102
-    },
-    {
-      "pc": 657,
-      "semantic": "R85(R1, V[657])",
-      "string_proto": 369,
-      "string": "readu16"
-    },
-    {
-      "pc": 658,
-      "semantic": "R1 = B[72] = buffer.readi32"
-    },
-    {
-      "pc": 659,
-      "semantic": "R85(R1, V[659])",
-      "string_proto": 308,
-      "string": "readi32"
-    },
-    {
-      "pc": 660,
-      "semantic": "R1 = B[24] = buffer.readu32"
-    },
-    {
-      "pc": 661,
-      "semantic": "R37 = 638"
-    },
-    {
-      "pc": 662,
-      "semantic": "jump via reusable hub -> next executed pc639"
-    },
-    {
       "pc": 639,
       "semantic": "R85(R1, V[639])",
       "string_proto": 163,
@@ -150,23 +112,23 @@
     },
     {
       "pc": 652,
-      "semantic": "opcode77 self-rewrite -> opcode24; R31 = B"
+      "semantic": "mode233 opcode77 pair-store: R88 = 56; consume pc653 as second pair element"
     },
     {
       "pc": 653,
-      "semantic": "R37 = 662"
+      "semantic": "paired data slot for opcode77 at pc652: R37 = 662; not independently executed"
     },
     {
       "pc": 654,
-      "semantic": "jump via reusable hub -> pc663"
+      "semantic": "lazy opcode83 rewrite -> opcode9; jump base 48 -> reusable hub"
     },
     {
       "pc": 663,
-      "semantic": "R37 = 2408"
+      "semantic": "lazy opcode83 rewrite -> opcode55; R37 = 2408"
     },
     {
       "pc": 664,
-      "semantic": "jump via reusable hub -> pc2409 decision root"
+      "semantic": "lazy opcode83 rewrite -> opcode9; return via reusable hub to pc2409"
     }
   ],
   "string_evidence": {
@@ -214,8 +176,28 @@
     }
   },
   "frontier": {
-    "explicit_selector_write_in_this_block": false,
-    "next_selector": "OPEN",
-    "reason": "No source-closed write to R88 occurs in the lifted main-lane block before return to pc2409. Do not infer a selector transition solely from the return-to-hub shape."
+    "explicit_selector_write_in_this_block": true,
+    "next_selector": 56,
+    "source": "pc652 mode233 opcode77 paired constant assignment",
+    "corrected_from": "Earlier receipt incorrectly interpreted pc652 as a self-rewrite/R31 assignment. In mode233 opcode77 is a two-slot constant store."
+  },
+  "correction": {
+    "pc652_final_tuple": {
+      "S": 77,
+      "w": 56,
+      "s": 88,
+      "H": 0
+    },
+    "pc653_paired_tuple": {
+      "S": 55,
+      "w": 662,
+      "s": 37,
+      "H": 0
+    },
+    "effect": [
+      "R88 = 56",
+      "R37 = 662"
+    ],
+    "confidence": "source-exact mode233 opcode77 semantics + offline reconstructed finalized main lanes"
   }
 }
