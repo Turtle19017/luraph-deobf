@@ -1,0 +1,116 @@
+{
+  "schema": "luraph-deobf.a321-runtime-object-tree.v1",
+  "root": {
+    "block_index": 1,
+    "seed_in": 164,
+    "dispatch_id": 68
+  },
+  "child_instantiations": [
+    {
+      "block_index": 2,
+      "seed_in": 325,
+      "repair_pc": 2221,
+      "repair_xor": 78,
+      "dispatch_pc": 2222,
+      "destination_register": 59,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 3,
+      "seed_in": 229,
+      "repair_pc": 2223,
+      "repair_xor": 189,
+      "dispatch_pc": 2224,
+      "destination_register": 60,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 4,
+      "seed_in": 129,
+      "repair_pc": 2225,
+      "repair_xor": 231,
+      "dispatch_pc": 2226,
+      "destination_register": 127,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 5,
+      "seed_in": 305,
+      "repair_pc": 2227,
+      "repair_xor": 243,
+      "dispatch_pc": 2228,
+      "destination_register": 56,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 6,
+      "seed_in": 339,
+      "repair_pc": 4091,
+      "repair_xor": 41,
+      "dispatch_pc": 4092,
+      "destination_register": 50,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 7,
+      "seed_in": 347,
+      "repair_pc": 4081,
+      "repair_xor": 71,
+      "dispatch_pc": 4082,
+      "destination_register": 10,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 8,
+      "seed_in": 281,
+      "repair_pc": 4083,
+      "repair_xor": 178,
+      "dispatch_pc": 4084,
+      "destination_register": 4,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 9,
+      "seed_in": 187,
+      "repair_pc": 1032,
+      "repair_xor": 128,
+      "dispatch_pc": 1033,
+      "dispatch_rewrite": {
+        "serialized_opcode": 50,
+        "rewritten_tuple": {
+          "S": 70,
+          "w": 29,
+          "s": 81,
+          "H": 187
+        }
+      },
+      "destination_register": 81,
+      "dispatch_opcode": 70
+    },
+    {
+      "block_index": 10,
+      "seed_in": 283,
+      "repair_pc": 1034,
+      "repair_xor": 200,
+      "dispatch_pc": 1035,
+      "dispatch_rewrite": {
+        "serialized_opcode": 50,
+        "rewritten_tuple": {
+          "S": 70,
+          "w": 172,
+          "s": 5,
+          "H": 283
+        }
+      },
+      "destination_register": 5,
+      "dispatch_opcode": 70
+    }
+  ],
+  "unresolved_runtime_child": {
+    "block_index": 11,
+    "seed_in": 211,
+    "status": "not yet bound to a reachable opcode70 site in the currently lifted path"
+  },
+  "opcode70_semantics": "N=K[pc]; build capture list from I/v companions; child=B[N[N[1]]](B,nil,captures,N); store child in R[s[pc]]",
+  "conclusion": "At least 9 of the 10 runtime child A321 plaintext objects are now bound to concrete reachable nested-function/object construction sites in the root VM."
+}
