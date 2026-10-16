@@ -1,0 +1,244 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector56-137.v1",
+  "selector56": {
+    "entry": {
+      "register": "R88",
+      "value": 56,
+      "source": "selector107 pc652"
+    },
+    "decision_path": [
+      "pc2409: 56 <= 71 -> true",
+      "pc1151: R9 = (56 <= 35) -> false",
+      "pc1152: branch on R9 -> pc2159",
+      "pc2159: 56 <= 53 -> false",
+      "pc1595: 56 <= 62 -> true",
+      "pc1149: 56 <= 57 -> true",
+      "pc3893: 56 <= 55 -> false",
+      "pc4407: R1 = (56 <= 56) -> true",
+      "pc4408: branch on R1 -> pc4324"
+    ],
+    "registrations": [
+      {
+        "builtin": "buffer.writeu16",
+        "string_proto": 170,
+        "repair_xor": 109,
+        "string": "writeu16"
+      },
+      {
+        "builtin": "buffer.writei32",
+        "string_proto": 140,
+        "string": "writei32"
+      },
+      {
+        "builtin": "buffer.writeu32",
+        "string_proto": 183,
+        "string": "writeu32"
+      },
+      {
+        "builtin": "buffer.writef32",
+        "string_proto": 243,
+        "repair_xor": 165,
+        "string": "writef32"
+      },
+      {
+        "builtin": "buffer.writef64",
+        "string_proto": 315,
+        "string": "writef64"
+      },
+      {
+        "builtin": "buffer.readbits",
+        "string_proto": 394,
+        "string": "readbits"
+      },
+      {
+        "builtin": "buffer.writebits",
+        "string_proto": 290,
+        "string": "writebits"
+      },
+      {
+        "builtin": "coroutine.isyieldable",
+        "string_proto": 352,
+        "string": "isyieldable"
+      },
+      {
+        "builtin": "coroutine.running",
+        "string_proto": 298,
+        "repair_xor": 44,
+        "string": "running"
+      },
+      {
+        "builtin": "coroutine.create",
+        "string_proto": 45,
+        "string": "create"
+      }
+    ],
+    "direct_alias": {
+      "pc": 4301,
+      "register": 47,
+      "builtin": "coroutine.status"
+    },
+    "transition": {
+      "pc4302": "mode233 opcode77 pair-store",
+      "effect": [
+        "R88 = 137",
+        "R37 = 2408"
+      ],
+      "pc4304": "jump via reusable hub -> pc2409"
+    }
+  },
+  "selector137": {
+    "entry": {
+      "register": "R88",
+      "value": 137
+    },
+    "reachable_bulk_xor": [
+      {
+        "pc": 415,
+        "seed": 69,
+        "start": 2649,
+        "length": 90,
+        "end": 2738
+      },
+      {
+        "pc": 2690,
+        "seed": 4,
+        "start": 2649,
+        "length": 12,
+        "end": 2660
+      }
+    ],
+    "registrations": [
+      {
+        "source_register": 47,
+        "builtin": "coroutine.status",
+        "string_proto": 214,
+        "string": "status"
+      },
+      {
+        "builtin": "coroutine.yield",
+        "string_proto": 386,
+        "repair_xor": 56,
+        "string": "yield"
+      },
+      {
+        "builtin": "coroutine.close",
+        "string_proto": 145,
+        "string": "close"
+      },
+      {
+        "builtin": "coroutine.resume",
+        "string_proto": 327,
+        "string": "resume"
+      },
+      {
+        "builtin": "coroutine.wrap",
+        "string_proto": 368,
+        "repair_xor": 132,
+        "string": "wrap"
+      },
+      {
+        "source_register": 35,
+        "semantic": "previously resolved task.cancel",
+        "string_proto": 85,
+        "string": "cancel"
+      },
+      {
+        "source_register": 36,
+        "semantic": "previously resolved task.spawn",
+        "string_proto": 44,
+        "string": "spawn"
+      },
+      {
+        "source_register": 38,
+        "semantic": "previously resolved task.defer",
+        "string_proto": 48,
+        "string": "defer"
+      },
+      {
+        "source_register": 40,
+        "semantic": "previously resolved task.delay",
+        "string_proto": 103,
+        "string": "delay"
+      },
+      {
+        "source_register": 49,
+        "semantic": "previously resolved task.wait",
+        "string_proto": 46,
+        "string": "wait"
+      },
+      {
+        "builtin_slot": 38,
+        "builtin": "unpack",
+        "string_proto": 43,
+        "string": "unpack"
+      }
+    ],
+    "transition": {
+      "pc2651": "mode233 opcode77 pair-store",
+      "effect": [
+        "R88 = 141",
+        "R37 = 2408"
+      ],
+      "pc2653": "jump via reusable hub -> pc2409"
+    }
+  },
+  "string_evidence": {
+    "43": {
+      "result": "unpack"
+    },
+    "45": {
+      "result": "create"
+    },
+    "140": {
+      "result": "writei32"
+    },
+    "145": {
+      "result": "close"
+    },
+    "170": {
+      "result": "writeu16",
+      "repair_xor": 109
+    },
+    "183": {
+      "result": "writeu32"
+    },
+    "214": {
+      "result": "status"
+    },
+    "243": {
+      "result": "writef32",
+      "repair_xor": 165
+    },
+    "290": {
+      "result": "writebits"
+    },
+    "298": {
+      "result": "running",
+      "repair_xor": 44
+    },
+    "315": {
+      "result": "writef64"
+    },
+    "327": {
+      "result": "resume"
+    },
+    "352": {
+      "result": "isyieldable"
+    },
+    "368": {
+      "result": "wrap",
+      "repair_xor": 132
+    },
+    "386": {
+      "result": "yield",
+      "repair_xor": 56
+    },
+    "394": {
+      "result": "readbits"
+    }
+  },
+  "frontier": {
+    "selector": 141,
+    "note": "Selector141 opens two additional mode233 bulk-XOR regions at pc4148/4149; semantic lifting continues there."
+  }
+}
