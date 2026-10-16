@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Derive source offsets for the 11 observed A-layer LCG blocks offline.
+"""Derive A99 record offsets inside one explicitly supplied source buffer.
 
-This uses the J9/A handoff's z[4] index and the exact length-parser path before
-A99 in this sample:
+IMPORTANT: runtime evidence disproves the old assumption that all 11 observed
+A99 invocations read from the same outer J9 z[7] buffer. The verified outer z[7]
+is currently proven only for block #1 (seed/index 164).
+
+This tool therefore defaults to seed 164 only. --all-observed is retained as an
+explicit diagnostic single-buffer hypothesis mode; its output must not be
+treated as source provenance for the other ten blocks.
+
+The record parser follows the exact length-parser path before A99:
 
   Gy(245): ptr = z4[seed] + 1; read b0
     b0 < 128  -> state 462 -> A99, size=b0
@@ -11,9 +18,8 @@ A99 in this sample:
       b1>=128 -> state 439; read b2 -> state 300 -> A99,
                    size=128*(b0-128)+(b1-128)+16384*b2
 
-All 11 runtime-observed block sizes fit these 1/2/3-byte cases. The tool fails
-closed if a fourth limb is required or if a parsed size differs from the trace
-census.
+The tool fails closed if a fourth limb is required or if a parsed size differs
+from the runtime census for the selected seed(s).
 """
 from __future__ import annotations
 
@@ -65,9 +71,20 @@ def parse_length(buf: bytes, ptr: int) -> tuple[int, int, list[int]]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("handoff", type=Path, help="luraph_j9_handoff.json")
-    ap.add_argument("buffer", type=Path, help="luraph_j9_z_7.bin / A-layer source buffer")
+    ap.add_argument("buffer", type=Path, help="one candidate A-layer source buffer")
     ap.add_argument("-o", "--out", type=Path, default=Path("luraph_A_lcg_manifest.json"))
+    ap.add_argument(
+        "--seed", action="append", type=int,
+        help="seed/index to derive; may be repeated (default: verified block1 seed 164)",
+    )
+    ap.add_argument(
+        "--all-observed", action="store_true",
+        help="diagnostic only: test all 11 observed seeds against this one buffer; "
+             "does not establish provenance",
+    )
     args = ap.parse_args()
+    if args.seed and args.all_observed:
+        raise SystemExit("FAIL: use either --seed or --all-observed, not both")
 
     handoff = json.loads(args.handoff.read_text(encoding="utf-8"))
     z4_raw = handoff.get("z_summary", {}).get("4")
@@ -76,8 +93,16 @@ def main() -> None:
     z4 = {int(k): int(v) for k, v in z4_raw.items()}
     buf = args.buffer.read_bytes()
 
+    expected_by_seed = {seed: size for seed, size in EXPECTED}
+    selected = [seed for seed, _ in EXPECTED] if args.all_observed else (args.seed or [164])
+    unknown = [seed for seed in selected if seed not in expected_by_seed]
+    if unknown:
+        raise SystemExit(f"FAIL: seed(s) absent from observed census: {unknown}")
+
     rows = []
-    for index, (seed_in, expected_size) in enumerate(EXPECTED, 1):
+    for seed_in in selected:
+        index = next(i for i, (seed, _) in enumerate(EXPECTED, 1) if seed == seed_in)
+        expected_size = expected_by_seed[seed_in]
         if seed_in not in z4:
             raise ValueError(f"z4 missing seed/index {seed_in}")
         record = z4[seed_in]
@@ -109,6 +134,12 @@ def main() -> None:
         "schema": "luraph-deobf.a-lcg-manifest.v1",
         "source_handoff": str(args.handoff),
         "source_buffer": str(args.buffer),
+        "mode": "diagnostic-single-buffer-hypothesis" if args.all_observed else "selected-seeds",
+        "provenance_note": (
+            "Outer J9 z[7] provenance is currently verified only for block #1 / seed 164. "
+            "Rows for other seeds are record-parser results inside the supplied candidate "
+            "buffer, not proof that runtime used that buffer."
+        ),
         "block_count": len(rows),
         "total_decoded_bytes": sum(r["size"] for r in rows),
         "blocks": rows,
