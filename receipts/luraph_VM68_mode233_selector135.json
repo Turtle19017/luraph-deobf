@@ -1,0 +1,202 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector135.v1",
+  "entry": {
+    "selector_register": "R88",
+    "selector_value": 135,
+    "source": "pc3967 after the reachable pc2129 bulk-XOR block"
+  },
+  "decision_path": [
+    {
+      "pc": 2409,
+      "test": "135 <= 71",
+      "result": false,
+      "next": 2410
+    },
+    {
+      "pc": 1517,
+      "test": "135 <= 107",
+      "result": false,
+      "next": 1518
+    },
+    {
+      "pc": 1519,
+      "test": "135 <= 125",
+      "result": false,
+      "next": 1520
+    },
+    {
+      "pc": 4101,
+      "test": "135 <= 134",
+      "result": false,
+      "next": 4102
+    },
+    {
+      "pc": 1874,
+      "test": "135 <= 139",
+      "result": true,
+      "next": 2747
+    },
+    {
+      "pc": 1822,
+      "test": "135 <= 136",
+      "result": true,
+      "next": 2646
+    }
+  ],
+  "reachable_bulk_xor": [
+    {
+      "pc": 2646,
+      "seed": 4,
+      "start": 2185,
+      "length": 110,
+      "end": 2294
+    },
+    {
+      "pc": 2187,
+      "seed": 89,
+      "start": 2190,
+      "length": 105,
+      "end": 2294
+    },
+    {
+      "pc": 2202,
+      "seed": 17,
+      "start": 2217,
+      "length": 58,
+      "end": 2274
+    },
+    {
+      "pc": 2264,
+      "seed": 110,
+      "start": 2231,
+      "length": 12,
+      "end": 2242
+    },
+    {
+      "pc": 2240,
+      "seed": 107,
+      "start": 2231,
+      "length": 4,
+      "end": 2234
+    }
+  ],
+  "constant_bank": {
+    "R76_values": [
+      212,
+      140,
+      205,
+      183,
+      12,
+      153,
+      37,
+      44,
+      161,
+      229,
+      137,
+      93
+    ],
+    "construction": "R76 is created as a table and receives R64..R75 through mode233 opcode67"
+  },
+  "nested_object_construction": [
+    {
+      "repair_pc": 2221,
+      "proto": 325,
+      "xor_key": 78,
+      "dispatch_pc": 2222,
+      "destination_register": 59
+    },
+    {
+      "repair_pc": 2223,
+      "proto": 229,
+      "xor_key": 189,
+      "dispatch_pc": 2224,
+      "destination_register": 60
+    },
+    {
+      "repair_pc": 2225,
+      "proto": 129,
+      "xor_key": 231,
+      "dispatch_pc": 2226,
+      "destination_register": 127
+    },
+    {
+      "repair_pc": 2227,
+      "proto": 305,
+      "xor_key": 243,
+      "dispatch_pc": 2228,
+      "destination_register": 56
+    }
+  ],
+  "debug_library_gate": {
+    "assert_slot": "B[82] = assert",
+    "pc2256": {
+      "operation": "lazy-repair level3 proto138",
+      "xor_key": 246
+    },
+    "proto138": {
+      "resolved_string": "debug",
+      "z7_record_offset": 64334
+    },
+    "proto154": {
+      "resolved_string": "The debug library is required on Luau platforms. Please open a support ticket.",
+      "z7_record_offset": 24971
+    },
+    "operations": [
+      "R1 = B[82] = assert",
+      "R64 = getfenv()[\"debug\"]",
+      "R65 = <debug-library-required error string>",
+      "R63 = assert(R64, R65)",
+      "R62 = R63"
+    ],
+    "result": "R62 is the required debug library table on the successful path"
+  },
+  "post_gate": {
+    "capture_finalization_registers": [
+      123,
+      76,
+      112,
+      109,
+      120,
+      111,
+      127
+    ],
+    "selector_reset": {
+      "pc": 2231,
+      "register": "R88",
+      "value": 101
+    },
+    "pc2232": {
+      "semantic": "R45 = K[2232]",
+      "proto": 14,
+      "resolved_string": "info",
+      "z7_record_offset": 57229
+    },
+    "continuation": "pc2233/2234 return through the central trampoline to the selector tree with R88=101"
+  },
+  "selector101_first_semantics": [
+    {
+      "pc": 4088,
+      "semantic": "R48 = R62[R45] = debug[\"info\"]"
+    },
+    {
+      "pc": 4089,
+      "semantic": "R3 = R62[I[4089]]",
+      "proto": 81,
+      "resolution": "traceback (proto81 repaired earlier by xor key 1)"
+    },
+    {
+      "pc": 4090,
+      "semantic": "R4 = R62[I[4090]]",
+      "proto": 378,
+      "resolution": "getinfo by debug-table member context; exact z4 cursor not separately promoted"
+    }
+  ],
+  "confidence": {
+    "control_flow_and_bulk_xor": "source-derived from mode233 and verified main lanes",
+    "debug_string": "offline level3 string replay after reachable opcode34 repair",
+    "error_string": "offline direct level3 string replay",
+    "info_string": "offline direct level3 string replay",
+    "traceback": "offline replay of the previously reachable pc49 opcode34 repair",
+    "getinfo": "semantic/type-context resolution; cursor-level binding remains optional follow-up"
+  }
+}
