@@ -8,10 +8,12 @@ script.txt
 script_A_probe.luau
 script_A_trace.luau
 script_A_final_lane_probe.luau
+script_R177_probe.luau
 script_level3_trace.luau
 script_offsets.luau
 run_probe*.luau
 run_trace.luau
+run_R177_probe.luau
 run_offsets.luau
 runner.luau
 
