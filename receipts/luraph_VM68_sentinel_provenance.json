@@ -1,0 +1,80 @@
+{
+  "schema": "luraph-deobf.vm68-sentinel-provenance.v1",
+  "source_head": "7e3f9045d349d2f699de042356568b684df0935e",
+  "selector141_setup": {
+    "pc4183": {
+      "tuple": {
+        "S": 52,
+        "w": 121,
+        "s": 0,
+        "H": 150
+      },
+      "semantic": "mode233 opcode52: R121 = K[4183]",
+      "backing_proto": 150
+    },
+    "pc4184": {
+      "tuple": {
+        "S": 52,
+        "w": 86,
+        "s": 0,
+        "H": 208
+      },
+      "semantic": "mode233 opcode52: R86 = K[4184]",
+      "backing_proto": 208
+    }
+  },
+  "level3_constants": {
+    "proto150": {
+      "z4_cursor": 64293,
+      "tag_hex": "32",
+      "codec": {
+        "payload_size": 4,
+        "seed0": 11,
+        "mult": 93,
+        "inc": 155,
+        "xor": 117,
+        "result_decoder": "buffer.readi32 little-endian"
+      },
+      "decoded_hex": "87b24757",
+      "value_i32": 1464316551
+    },
+    "proto208": {
+      "z4_cursor": 76569,
+      "tag_hex": "32",
+      "codec": {
+        "payload_size": 4,
+        "seed0": 69,
+        "mult": 93,
+        "inc": 155,
+        "xor": 117,
+        "result_decoder": "buffer.readi32 little-endian"
+      },
+      "decoded_hex": "de0bc66a",
+      "value_i32": 1791364062
+    }
+  },
+  "proof": {
+    "sentinels_distinct": true,
+    "R121_non_nil": true,
+    "R86_non_nil": true,
+    "values_equal": false
+  },
+  "selector141_actual_path": {
+    "child297_resume1": "R121 = 1464316551",
+    "child347_probe1": "R10(R121,R121) -> true",
+    "post_not1": false,
+    "effect1": "retry selector141",
+    "child297_resume2": "R86 = 1791364062",
+    "child347_probe2": "R10(R86,R121) -> false",
+    "post_not2": true,
+    "effect2": "R88=50 -> selector50 success arm",
+    "conclusion": "selector141 retries exactly once, then deterministically exits to selector50"
+  },
+  "selector29_pre_megacall": {
+    "child297_resume3": "no value / nil",
+    "comparison": "R10(nil,R86) -> false because R86 is a non-nil distinct int32 sentinel",
+    "post_not": true,
+    "selector_register_before_pc3784": "R88 = true",
+    "implication": "The later R177 mega-call or an immediately surrounding side effect must account for any valid numeric selector before the next pc2409 comparison; do not assume true is consumed directly by the numeric decision tree."
+  }
+}
