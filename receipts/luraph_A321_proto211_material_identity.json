@@ -1,0 +1,31 @@
+{
+  "schema": "luraph-deobf.a321-proto211-material-identity.v1",
+  "known_runtime_block": {
+    "block_index": 11,
+    "seed_in": 211,
+    "size": 3693,
+    "plaintext_sha256": "e7f8fffa550878ab6808baf37cd219074e4a5708dd6eff3badb05fd2b412c785",
+    "head16_hex": "011b14011e1a1511b4f802201913161c"
+  },
+  "outer_record": {
+    "proto": 211,
+    "z4_encoded_cursor": 263852361,
+    "cursor_xor": 263872163,
+    "resolved_cursor": 20458,
+    "tag_hex": "50",
+    "payload_length": 3693,
+    "payload_start": 20461
+  },
+  "repair": {
+    "xor_key": 125,
+    "derivation": "raw proto211 payload head XOR previously runtime-derived block11 ciphertext head is constant 0x7d across all 16 bytes",
+    "repaired_cipher_head_hex": "83ee8826585335ca7ea5866f1702be7f"
+  },
+  "replay": {
+    "a99_seed_in": 211,
+    "plaintext_sha256": "e7f8fffa550878ab6808baf37cd219074e4a5708dd6eff3badb05fd2b412c785",
+    "plaintext_head16_hex": "011b14011e1a1511b4f802201913161c",
+    "exact_runtime_identity": true
+  },
+  "conclusion": "Outer proto211 is byte-material-identical to runtime A321 block11 after cursor unmask, XOR-125 payload repair, and the verified A99 LCG. Its concrete reachable opcode34/70 site remains to be located."
+}
