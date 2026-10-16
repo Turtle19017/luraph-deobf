@@ -1,77 +1,68 @@
-# 014 — Third count-sized integer table
+# 014 — Two post-second scalars, third integer table, and phase-4 boundary
 
-## Confirmed transition after the second table
+## Correction
 
-The second-table parser succeeds on all eleven runtime-verified A321 plaintext
-objects. Each second table contains exactly the same `count` as the first table.
+The previous parser started the third integer table one field too early.
 
-After that table, source mapping gives the common path:
+After the second count-sized table, the source consumes **two** serialized
+scalars before the third count-sized table begins.
 
-```text
-495(QW) loop exit
-→ 404(vW)
-→ 50(U)
-```
-
-State 50 begins another serialized scalar. In the current eleven-object corpus,
-the first byte is always below 128, so every object takes:
+For verified block #1:
 
 ```text
-50 -> 325 -> 503 -> 4 -> 412
+second table end   10201
+scalar A           15 hex = 21
+scalar B           1f hex = 31
+third table start  10203
 ```
 
-The observed values are:
+The incorrect earlier boundary treated `0x1f` as the first third-table entry.
+That shifted the table end by one byte and incorrectly interpreted the final
+third-table byte `0x0f` as the low byte of a u32 phase-4 count.
+
+## Exact source transition
+
+After the second-table loop exits:
 
 ```text
-block 1   21
-block 2   31
-block 3   32
-block 4   19
-block 5   32
-block 6   25
-block 7   32
-block 8   30
-block 9   19
-block 10  27
-block 11  23
+495 -> 404 -> 50
 ```
 
-These values are stored into the current object. They are **not** used as the
-next loop bound.
-
-## State 412 creates the next count-sized phase
-
-At state `412(nW)`, the source allocates:
+State 50 reads scalar A. In the observed corpus scalar A is one byte wide and
+takes:
 
 ```text
-table.create(count)
-table.create(count)
+50 -> 325 -> 503
 ```
 
-using the still-live original object count.
+State 503 then reads the first limb of **scalar B**, not the first table entry.
 
-It also constructs a loop descriptor with:
+Scalar-B width paths converge at state 412:
 
 ```text
-step  = 1
-bound = count
+width 1: 503 -> 4   -> 412
+width 2: 503 -> 435 -> 327 -> 412
+width 3: 503 -> 435 -> 305 -> 116 -> 412
+width 4: 503 -> 435 -> 305 -> 372 -> 412
 ```
 
-and enters state 36.
+Only after scalar B is decoded does state 412 allocate the next two count-sized
+tables and create the loop descriptor.
 
-The loop is:
+## Third table
+
+State 412 uses the still-live object count as the loop bound:
 
 ```text
-36(T)      loop controller
-401(vW)    read first serialized-integer limb
-250/52/... decode 1/2/3/4-byte integer
-343(Py)    store decoded value[index]
-36(T)      repeat
+412
+→ 36(T)      loop controller
+→ 401(vW)    read first serialized-integer limb
+→ ...        1/2/3/4-byte integer decoder
+→ 343(Py)    store value[index]
+→ 36(T)
 ```
 
-All integer-width paths converge at state 343 before returning to state 36.
-
-Therefore the known layout extends to:
+The layout is therefore:
 
 ```text
 header
@@ -81,58 +72,43 @@ meta16
 meta5
 secondary_integer
 second_int_table[count]
-post_second_scalar
+post_second_scalar_a
+post_second_scalar_b
 third_int_table[count]
+phase4_record_count_u32
 ...
 ```
 
-## Block #1 checkpoint
-
-Verified block #1 gives:
+## Correct block #1 checkpoint
 
 ```text
 count                    4474
 second table end         10201
-post-second scalar       21 / 0x15
-third table start        10202
-third table end          15208
+scalar A                 21 / 15
+scalar B                 31 / 1f
+third table start        10203
+third table end          15209
 third table encoded size 5006
 width histogram          1-byte:3944, 2-byte:529, 4-byte:1
+phase4 count bytes       00 00 00 00
+phase4 record count      0
+phase4 start             15213
 ```
 
-The next four bytes are:
-
-```text
-0f 00 00 00
-```
-
-State 55 reads those bytes with `buffer.readu32`, producing value `15`.
-
-## Phase-4 boundary
-
-When the third-table loop finishes:
-
-```text
-36 -> 51 -> 55
-```
-
-State 55 reads one little-endian u32 from the current cursor, advances four
-bytes, allocates a new table, and constructs another loop descriptor.
-
-`tools/decode_a321_third_tables.py` therefore reports this u32 as
-`phase4_count_u32` but deliberately stops before parsing its records.
+With the corrected boundary, block #1 phase 4 is empty. This removes the
+previous apparent contradiction where an odd tagged u32 would have implied an
+enormous inner loop.
 
 ## Reproduce
+
+`tools/decode_a321_third_tables.py` is schema v2 and now reports the two
+scalars separately.
 
 ```bash
 python tools/decode_a321_third_tables.py \
   _probe/a321_plaintexts \
-  --json _probe/a321_third_tables.json
+  --json _probe/a321_third_tables.v2.json
 ```
 
-The tool verifies every plaintext by the runtime size/SHA/head receipt, replays
-the already-proven first and second-table boundaries, requires the observed
-one-byte post-second scalar path, parses exactly `count` integers into the
-third table, then reads the phase-4 u32.
-
-No Luau/target execution is required.
+The tool remains fail-closed on runtime size/SHA/head16 and on all previously
+verified prefix/table invariants.
