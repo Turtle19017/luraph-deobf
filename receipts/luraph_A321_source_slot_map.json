@@ -68,5 +68,80 @@
     "state39": "on J>38 branch builds c[B.ep] level-3 closure, stores it in P[2][5], then returns state48",
     "state35": "calls B[3](...) then state513",
     "state513": "B:WW returns control code 2; B:A returns q"
+  },
+  "semantic_lift": {
+    "dispatch_id": {
+      "storage": "q[q[1]]",
+      "source_value": "phase5_integer_b",
+      "use": "outer handoff calls B[q[q[1]]](B,nil,B.y,q)",
+      "block1_value": 68
+    },
+    "vm_mode": {
+      "storage": "q[q[7]]",
+      "source_value": "post-table tag",
+      "use": "B[68] selects interpreter branch; known block1 branch is mode 215",
+      "block1_value": 215
+    },
+    "entry_pc": {
+      "storage": "q[q[6]]",
+      "source_value": "secondary_integer",
+      "use": "B[68] initializes instruction pointer l from this value",
+      "block1_value": 4453
+    },
+    "stack_size": {
+      "storage": "q[q[9]]",
+      "source_value": "phase5_integer_a",
+      "use": "B[68] executes table.create(stack_size) for register frame",
+      "block1_value": 130
+    },
+    "instruction_lanes": {
+      "opcode": {
+        "runtime_local": "s",
+        "placement": "q[q[10]]",
+        "serialized": "table3"
+      },
+      "lane_S": {
+        "runtime_local": "S",
+        "placement": "q[q[12]]",
+        "serialized": "table1"
+      },
+      "lane_w": {
+        "runtime_local": "w",
+        "placement": "q[q[13]]",
+        "serialized": "table2"
+      },
+      "lane_H": {
+        "runtime_local": "H",
+        "placement": "q[q[8]]",
+        "serialized": "table4"
+      },
+      "aux_v": {
+        "runtime_local": "v",
+        "placement": "q[q[15]]",
+        "serialized": "companion of table1"
+      },
+      "aux_I": {
+        "runtime_local": "I",
+        "placement": "q[q[11]]",
+        "serialized": "companion of table2"
+      },
+      "aux_V": {
+        "runtime_local": "V",
+        "placement": "q[q[16]]",
+        "serialized": "companion of table3"
+      },
+      "aux_K": {
+        "runtime_local": "K",
+        "placement": "q[q[14]]",
+        "serialized": "companion of table4"
+      }
+    },
+    "descriptor_fields": {
+      "q[5]": "phase4 range-table key",
+      "q[8]": "table4 key; populated by phase5 integer C",
+      "q[9]": "stack-size key; populated by post-second scalar A",
+      "q[16]": "aux_V lane key; populated by meta16",
+      "q[1]": "dispatch-id key; populated by post-second scalar B"
+    }
   }
 }
