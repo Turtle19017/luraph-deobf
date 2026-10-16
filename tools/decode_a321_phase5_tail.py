@@ -221,6 +221,19 @@ def main() -> int:
     result = {
         "schema": "luraph-deobf.a321-phase5-tail.v1",
         "block_count": len(rows),
+        "canonical_slot_map": {
+            "table1": {"placement": "q[q[12]]", "companion": "q[q[15]]"},
+            "table2": {"placement": "q[q[13]]", "companion": "q[q[11]]"},
+            "phase4_range_table": {"placement": "q[q[5]]"},
+            "table3": {"placement": "q[q[10]]", "companion": "q[q[16]]"},
+            "metadata_a": {"placement": "q[q[9]]"},
+            "metadata_b": {"placement": "q[q[1]]"},
+            "metadata_c_and_table4_key": {"placement": "q[8]"},
+            "table4": {
+                "placement": "q[q[8]] after q[8]=metadata_c",
+                "companion": "q[q[14]]",
+            },
+        },
         "source_layout": [
             "serialized_integer_A -> state485 metadata store",
             "serialized_integer_B -> state340 metadata store",
