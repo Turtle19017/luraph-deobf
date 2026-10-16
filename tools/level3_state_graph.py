@@ -47,13 +47,17 @@ def eval_cond(cond: str, formal: str, state: int) -> Optional[bool]:
     return None
 
 
-def possible_bodies(st: IfStmt, toks: list[Tok], formal: str, state: int) -> list[Optional[list]]:
+def possible_bodies(st: IfStmt, toks: list[Tok], formal: str, state: int,
+                    formal_live: bool = True) -> list[Optional[list]]:
     out: list[Optional[list]] = []
     can_continue = True
     for br in st.branches:
         if not can_continue:
             break
-        ev = eval_cond(text(toks, br.ca, br.cb), formal, state)
+        # A micro-handler may shadow/reassign the formal that originally carried
+        # the dispatcher state. Once that happens, a later `if formal ...`
+        # is runtime data, not a test of the original state. Treat it as unknown.
+        ev = eval_cond(text(toks, br.ca, br.cb), formal, state) if formal_live else None
         if ev is True:
             out.append(br.body)
             can_continue = False
@@ -97,29 +101,80 @@ def return_list(stmt: Simple, toks: list[Tok]) -> Optional[list[str]]:
     return args
 
 
-def reachable_returns(stmts: list, toks: list[Tok], formal: str, state: int) -> tuple[list[list[str]], bool]:
+def simple_rebinds_formal(stmt: Simple, toks: list[Tok], formal: str) -> bool:
+    """Conservatively detect rebinding/shadowing of the state-carrying formal.
+
+    We only need sound successor over-approximation. A bare formal on the
+    top-level LHS of an assignment means subsequent tests of that name are no
+    longer safe to evaluate from the original dispatcher state. Indexed/member
+    assignments such as `formal[1]=...` do not rebind the variable itself.
+    """
+    part = toks[stmt.a:stmt.b]
+    par = br = brace = 0
+    eq = None
+    for i, x in enumerate(part):
+        v = x.val
+        if v == "(": par += 1
+        elif v == ")": par -= 1
+        elif v == "[": br += 1
+        elif v == "]": br -= 1
+        elif v == "{": brace += 1
+        elif v == "}": brace -= 1
+        elif v == "=" and par == br == brace == 0:
+            eq = i
+            break
+    if eq is None:
+        return False
+
+    par = br = brace = 0
+    lhs = part[:eq]
+    for i, x in enumerate(lhs):
+        v = x.val
+        if v == "(": par += 1
+        elif v == ")": par -= 1
+        elif v == "[": br += 1
+        elif v == "]": br -= 1
+        elif v == "{": brace += 1
+        elif v == "}": brace -= 1
+        elif v == formal and par == br == brace == 0:
+            nxt = lhs[i + 1].val if i + 1 < len(lhs) else None
+            if nxt in ("[", ".", ":"):
+                continue
+            return True
+    return False
+
+
+def reachable_returns(stmts: list, toks: list[Tok], formal: str, state: int,
+                      formal_live: bool = True) -> tuple[list[list[str]], set[bool]]:
+    """Return possible returns and state-formal liveness for fallthrough paths.
+
+    `formal_live=True` means the formal still denotes the original dispatcher
+    state. Once a statement shadows/reassigns it, later conditions on the same
+    spelling are runtime-dependent and must be unioned rather than evaluated
+    from `state`.
+    """
     returns: list[list[str]] = []
-    active = True
+    active: set[bool] = {formal_live}
     for st in stmts:
         if not active:
             break
-        if isinstance(st, Simple):
-            r = return_list(st, toks)
-            if r is not None:
-                returns.append(r)
-                active = False
-        else:
-            branch_returns: list[list[str]] = []
-            branch_fall = False
-            for body in possible_bodies(st, toks, formal, state):
-                if body is None:
-                    branch_fall = True
+        next_active: set[bool] = set()
+        for live in active:
+            if isinstance(st, Simple):
+                r = return_list(st, toks)
+                if r is not None:
+                    returns.append(r)
                 else:
-                    rr, ff = reachable_returns(body, toks, formal, state)
-                    branch_returns.extend(rr)
-                    branch_fall |= ff
-            returns.extend(branch_returns)
-            active = branch_fall
+                    next_active.add(live and not simple_rebinds_formal(st, toks, formal))
+            else:
+                for body in possible_bodies(st, toks, formal, state, live):
+                    if body is None:
+                        next_active.add(live)
+                    else:
+                        rr, ff = reachable_returns(body, toks, formal, state, live)
+                        returns.extend(rr)
+                        next_active |= ff
+        active = next_active
     return returns, active
 
 
