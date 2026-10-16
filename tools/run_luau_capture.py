@@ -72,7 +72,7 @@ def main():
           f"{n[0]:,} lines, {len(txt):,} chars -> {args.out}")
 
     print("\n=== markers ===")
-    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[AFINALMETA]", "[AFINALLEN]", "[AFINALHELPER]", "[AFINALENTRY]", "[AFINALSLOT]", "[AFINAL11]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
+    for pat in ("[A99]", "[A321]", "[A438]", "[A365]", "[R177PRE]", "[R177POST]", "[AFINALMETA]", "[AFINALLEN]", "[AFINALHELPER]", "[AFINALENTRY]", "[AFINALSLOT]", "[AFINAL11]", "[L3CHUNK]", "[L3VP8]", "[L3TAIL]", "[L3TERM]", "[runner]"):
         hits = [l for l in lines if l.startswith(pat)]
         if hits:
             for h in hits[:4]:
