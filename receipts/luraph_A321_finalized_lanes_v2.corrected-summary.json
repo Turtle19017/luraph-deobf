@@ -1,0 +1,68 @@
+{
+  "schema": "luraph-deobf.a321-finalized-lanes-v2.corrected-summary.v1",
+  "head": "cbec3368485da29f94098636deb5f69ad583f9af",
+  "metadata": {
+    "dispatch_key": 31,
+    "dispatch": 68,
+    "pc_key": 18,
+    "pc": 4453,
+    "mode_key": 30,
+    "mode": 215,
+    "stack_key": 21,
+    "stack": 130
+  },
+  "lane_lengths": {
+    "op_seq": 4474,
+    "S_seq": 4474,
+    "w_seq": 4474,
+    "H_seq": 4474,
+    "av_seq": 0,
+    "aI_seq": 0,
+    "aV_seq": 0,
+    "aK_seq": 0
+  },
+  "B3_helper": {
+    "type": "nil",
+    "value": "nil"
+  },
+  "validation_correction": {
+    "previous_false_difference": {
+      "pc": 4470,
+      "lane": "w",
+      "wrong_expected": 10,
+      "actual_finalized": 37
+    },
+    "offline_plaintext_check": {
+      "pc": 4470,
+      "raw_hex": "25",
+      "decoded": 37,
+      "pc4471_raw_hex": "0a",
+      "pc4471_decoded": 10
+    },
+    "corrected_result": "all 19 sampled bootstrap main-lane tuples match the serialized plaintext exactly"
+  },
+  "bootstrap_main_lanes_unchanged": true,
+  "bootstrap_sample_count": 19,
+  "bootstrap_any_aux_populated": false,
+  "pc11": {
+    "main": {
+      "op": 23,
+      "S": 46,
+      "w": 12326,
+      "H": 74
+    },
+    "main_unchanged": true,
+    "finalized_aux": {
+      "av": "nil",
+      "aI": "nil",
+      "aV": "nil",
+      "aK": "nil"
+    }
+  },
+  "conclusions": [
+    "No post-B:A mutation is observed in the sampled positive-index main lanes.",
+    "B[3] is nil at the outer handoff.",
+    "The auxiliary lane tables have zero dense sequence length and sampled bootstrap/pc11 entries are nil; index 0/metatable setup is handled separately by B:A finalization.",
+    "The mode215 bootstrap can be lifted directly from the serialized main lanes."
+  ]
+}
