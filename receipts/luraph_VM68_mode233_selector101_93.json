@@ -1,0 +1,203 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector101-93.v1",
+  "selector101": {
+    "entry": {
+      "register": "R88",
+      "value": 101,
+      "source_pc": 2231
+    },
+    "debug_gate": {
+      "assert_helper": "B[82] = assert",
+      "debug_name": {
+        "proto": 138,
+        "repair_xor": 246,
+        "result": "debug",
+        "z7_record_offset": 64334
+      },
+      "error_message": {
+        "proto": 154,
+        "result": "The debug library is required on Luau platforms. Please open a support ticket.",
+        "z7_record_offset": 24971
+      },
+      "operations": [
+        "R64 = getfenv()[\"debug\"]",
+        "R65 = <debug-library-required message>",
+        "R63 = assert(R64, R65)",
+        "R62 = R63"
+      ]
+    },
+    "debug_members": [
+      {
+        "register": 48,
+        "semantic": "debug[\"info\"]",
+        "key_proto": 14,
+        "key": "info",
+        "key_z7_offset": 57229
+      },
+      {
+        "register": 3,
+        "semantic": "debug[\"traceback\"]",
+        "key_proto": 81,
+        "key": "traceback",
+        "repair_xor": 1
+      },
+      {
+        "register": 4,
+        "semantic": "debug[\"getinfo\"]",
+        "key_proto": 378,
+        "key": "getinfo",
+        "resolution": "debug-table member context"
+      }
+    ],
+    "child_instantiation": [
+      {
+        "seed_in": 339,
+        "destination_register": 50,
+        "repair_pc": 4091,
+        "dispatch_pc": 4092
+      },
+      {
+        "seed_in": 347,
+        "destination_register": 10,
+        "repair_pc": 4081,
+        "dispatch_pc": 4082
+      },
+      {
+        "seed_in": 281,
+        "destination_register": 4,
+        "repair_pc": 4083,
+        "dispatch_pc": 4084
+      },
+      {
+        "seed_in": 187,
+        "destination_register": 81,
+        "repair_pc": 1032,
+        "dispatch_pc": 1033
+      },
+      {
+        "seed_in": 283,
+        "destination_register": 5,
+        "repair_pc": 1034,
+        "dispatch_pc": 1035
+      }
+    ],
+    "child8_calls": [
+      "R4(Instance)",
+      "R4(Vector3)",
+      "R4(Vector2)",
+      "R4(CFrame)",
+      "R4(Random)"
+    ],
+    "constructor_aliases": [
+      {
+        "register": 22,
+        "semantic": "Instance.new",
+        "key_proto": 16,
+        "key": "new"
+      },
+      {
+        "register": 82,
+        "semantic": "Vector3.new",
+        "key_proto": 16,
+        "key": "new"
+      },
+      {
+        "register": 83,
+        "semantic": "Vector2.new",
+        "key_proto": 16,
+        "key": "new"
+      }
+    ],
+    "selector_transition": {
+      "pc2071": {
+        "repair_proto": 177,
+        "repair_xor": 93,
+        "resolved_string": "UDim2",
+        "z7_record_offset": 27194
+      },
+      "pc2072": "R45 = getfenv()[\"UDim2\"]",
+      "pc2075": "R46 = \"new\"",
+      "pc2076": {
+        "bulk_xor": {
+          "seed": 121,
+          "start": 2061,
+          "length": 5,
+          "end": 2065
+        }
+      },
+      "pc2074": {
+        "set_selector": 93
+      }
+    }
+  },
+  "selector93": {
+    "entry": {
+      "register": "R88",
+      "value": 93
+    },
+    "constructor_aliases": [
+      {
+        "pc": 1435,
+        "semantic": "R45 = UDim2.new"
+      },
+      {
+        "pc": 1436,
+        "semantic": "R2 = getfenv()[\"UDim\"]",
+        "proto": 398,
+        "resolution": "UDim by constructor context"
+      },
+      {
+        "pc": 1437,
+        "semantic": "R46 = UDim.new"
+      },
+      {
+        "pc": 1438,
+        "repair_proto": 382,
+        "repair_xor": 31,
+        "resolved_string": "Path2DControlPoint",
+        "z7_record_offset": 33441
+      },
+      {
+        "pc": 1439,
+        "semantic": "R2 = getfenv()[\"Path2DControlPoint\"]"
+      },
+      {
+        "pc": 1440,
+        "semantic": "R41 = Path2DControlPoint.new"
+      }
+    ],
+    "reachable_bulk_xor": [
+      {
+        "pc": 1441,
+        "seed": 123,
+        "start": 1730,
+        "length": 26,
+        "end": 1755
+      },
+      {
+        "pc": 1753,
+        "seed": 13,
+        "start": 1730,
+        "length": 14,
+        "end": 1743
+      },
+      {
+        "pc": 1741,
+        "seed": 93,
+        "start": 1730,
+        "length": 2,
+        "end": 1731
+      }
+    ],
+    "table_build": {
+      "register": 47,
+      "note": "pc1744 creates R47={}, followed by lazy key/value materialization through opcode75 assignments"
+    },
+    "next_selector": {
+      "pc": 1737,
+      "register": "R88",
+      "value": 121
+    }
+  },
+  "interpretation": "The reachable root payload is constructing a Roblox datatype/API registry and several nested helper closures, not merely executing anti-analysis checks."
+}
