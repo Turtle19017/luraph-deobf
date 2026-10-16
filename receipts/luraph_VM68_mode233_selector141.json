@@ -1,0 +1,164 @@
+{
+  "schema": "luraph-deobf.vm68-mode233-selector141.v1",
+  "entry": {
+    "register": "R88",
+    "value": 141,
+    "source": "selector137 pc2651"
+  },
+  "decision_prefix": [
+    "pc2409: 141 <= 71 -> false",
+    "pc1517: 141 <= 107 -> false",
+    "pc1519: 141 <= 125 -> false",
+    "pc4101: 141 <= 134 -> false",
+    "pc1874: R5 = (141 <= 139) -> false",
+    "pc1298: 141 <= 141 -> true -> pc4147",
+    "pc4147: R4 = (141 <= 140) -> false"
+  ],
+  "reachable_bulk_xor": [
+    {
+      "pc": 4148,
+      "seed": 62,
+      "start": 4152,
+      "length": 81,
+      "end": 4232
+    },
+    {
+      "pc": 4149,
+      "seed": 50,
+      "start": 2596,
+      "length": 48,
+      "end": 2643
+    },
+    {
+      "pc": 4230,
+      "seed": 17,
+      "start": 4160,
+      "length": 62,
+      "end": 4221
+    },
+    {
+      "pc": 4167,
+      "seed": 88,
+      "start": 4170,
+      "length": 52,
+      "end": 4221
+    },
+    {
+      "pc": 4196,
+      "seed": 74,
+      "start": 4199,
+      "length": 23,
+      "end": 4221
+    },
+    {
+      "pc": 4197,
+      "seed": 111,
+      "start": 4170,
+      "length": 10,
+      "end": 4179
+    }
+  ],
+  "nested_children": [
+    {
+      "repair_pc": 4156,
+      "proto": 79,
+      "xor_key": 131,
+      "dispatch_pc": 4157,
+      "destination_register": 128
+    },
+    {
+      "repair_pc": 4222,
+      "proto": 56,
+      "xor_key": 20,
+      "dispatch_pc": 4223,
+      "destination_register": 122
+    },
+    {
+      "repair_pc": 4224,
+      "proto": 63,
+      "xor_key": 4,
+      "dispatch_pc": 4225,
+      "destination_register": 125
+    },
+    {
+      "repair_pc": 4226,
+      "proto": 50,
+      "xor_key": 26,
+      "dispatch_pc": 4227,
+      "destination_register": 118
+    },
+    {
+      "repair_pc": 4160,
+      "proto": 355,
+      "xor_key": 198,
+      "dispatch_pc": 4161,
+      "destination_register": 124
+    },
+    {
+      "repair_pc": 4163,
+      "proto": 331,
+      "xor_key": 10,
+      "dispatch_pc": 4164,
+      "destination_register": 119
+    },
+    {
+      "repair_pc": 4188,
+      "proto": 297,
+      "xor_key": 38,
+      "dispatch_pc": 4189,
+      "destination_register": 2
+    }
+  ],
+  "runtime_dependent_gate": {
+    "setup": [
+      "pc4165: R1 = B[9] = coroutine.resume",
+      "pc4166: R2 = B[84] = coroutine.create",
+      "pc4180: R2 = R2(R119) -- create coroutine from child331",
+      "pc4181: R1(R2, V[4181]) -- resume it",
+      "pc4185: R1 = B[35] = coroutine.wrap",
+      "pc4189: construct child297 -> R2",
+      "pc4190: R42 = coroutine.wrap(R2)",
+      "pc4191: R2 = R42()",
+      "pc4192: R3 = R121",
+      "pc4193: R1 = R10",
+      "pc4194: R1 = R1(R2, R3)",
+      "pc4195: R1 = not R1"
+    ],
+    "branch_pc": 4198,
+    "branch_semantic": "if R1 then jump base 4169 else jump base 4208",
+    "dependency": "R10 is the previously constructed child seed347; R2 comes from child297. The branch value is a real runtime child-return dependency."
+  },
+  "true_arm": {
+    "path": [
+      "pc4170: branch on R1=true into the rewritten loop arm",
+      "pc4171: R1 = 50",
+      "pc4172: R88 = R1 = 50",
+      "pc4173: R37 = 4198",
+      "pc4174 -> reusable hub -> pc4199",
+      "pc4199 sees R88=50 truthy and routes to pc4212"
+    ],
+    "cleanup": "pc4212..4219 finalize capture-by-reference cells for registers 116,114,126,128,122,125,118,129",
+    "convergence": "pc4220/4221 -> pc4200"
+  },
+  "false_arm": {
+    "path": "pc4198 false -> pc4209",
+    "cleanup": "pc4209..4219 reaches the same capture-finalization sequence without changing R88",
+    "selector_after_cleanup": 141
+  },
+  "convergence": {
+    "pcs": "4200..4205",
+    "operations": [
+      "finalize capture refs for registers 124,119,121",
+      "pc4203 opcode77 pair-store: R47 = 191; R37 = 2408",
+      "pc4205 returns through reusable hub to pc2409"
+    ],
+    "true_arm_next_selector": 50,
+    "false_arm_next_selector": 141
+  },
+  "interpretation": "Selector141 is a retry/validation loop. A successful/truthy post-negation gate exits to selector50; the other arm cleans up captures and re-enters selector141.",
+  "frontier": {
+    "success_path_selector": 50,
+    "actual_runtime_arm": "OPEN until child seed347/child297 return semantics are lifted or sampled",
+    "next_static_work": "lift selector50 success arm and/or child seed347 gate helper"
+  }
+}
