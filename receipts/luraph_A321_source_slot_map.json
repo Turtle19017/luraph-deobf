@@ -1,0 +1,72 @@
+{
+  "schema": "luraph-deobf.a321-source-slot-map.v1",
+  "confidence": "source-derived",
+  "object_symbol": "q",
+  "note": "q[n] values act as indirection keys for several logical fields. Canonical names below describe serializer order, not original source-level names.",
+  "fields": {
+    "first_int_table": {
+      "canonical": "table1",
+      "placement": "q[q[12]]",
+      "companion": "q[q[15]]",
+      "allocation_state": 251,
+      "store_loop": "375/.../269"
+    },
+    "second_int_table": {
+      "canonical": "table2",
+      "placement": "q[q[13]]",
+      "companion": "q[q[11]]",
+      "allocation_state": 237,
+      "store_loop": "495/.../469"
+    },
+    "phase4_result": {
+      "canonical": "phase4_range_table",
+      "placement": "q[q[5]]",
+      "allocation_state": 55,
+      "record_loop": "407/72/(477|411...297)/95"
+    },
+    "third_int_table": {
+      "canonical": "table3",
+      "placement": "q[q[10]]",
+      "companion": "q[q[16]]",
+      "allocation_state": 412,
+      "store_loop": "36/.../343"
+    },
+    "phase5_integer_a": {
+      "canonical": "metadata_a",
+      "placement": "q[q[9]]",
+      "start_state": 388,
+      "store_state": 485
+    },
+    "phase5_integer_b": {
+      "canonical": "metadata_b",
+      "placement": "q[q[1]]",
+      "start_state": 485,
+      "store_state": 340
+    },
+    "phase5_integer_c": {
+      "canonical": "metadata_c_and_table4_key",
+      "placement": "q[8]",
+      "start_state": 340,
+      "store_state": 129
+    },
+    "fourth_int_table": {
+      "canonical": "table4",
+      "placement": "q[q[8]] after q[8]=metadata_c",
+      "companion": "q[q[14]]",
+      "allocation_state": 129,
+      "store_loop": "169/.../475"
+    },
+    "fill_tail": {
+      "canonical": "buffer_fill",
+      "operation": "buffer.fill(target_buffer, base_offset + fill_offset_delta, fill_byte, fill_length)",
+      "terminal_byte_consumer_state": 214
+    }
+  },
+  "finalization": {
+    "state214": "after buffer.fill, branch on current object flag [6] to state451 or state35",
+    "state451": "if object slot [5] already exists go to state48; otherwise state39",
+    "state39": "on J>38 branch builds c[B.ep] level-3 closure, stores it in P[2][5], then returns state48",
+    "state35": "calls B[3](...) then state513",
+    "state513": "B:WW returns control code 2; B:A returns q"
+  }
+}
