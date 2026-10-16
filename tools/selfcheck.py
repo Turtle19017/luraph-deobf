@@ -26,7 +26,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 FORBIDDEN = [
     re.compile(r"(^|/)script\.txt$"),
     re.compile(r"\.bin$"),
-    re.compile(r"script_(A_probe|A_trace|offsets)\.luau$"),
+    re.compile(r"script_(A_probe|A_trace|offsets|level3_trace)\.luau$"),
     re.compile(r"^run_(probe|trace|offsets).*\.luau$"),
     re.compile(r"^probe_out.*\.txt$"),
     re.compile(r"^capture_.*\.txt$"),
