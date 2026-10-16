@@ -1,0 +1,37 @@
+{
+  "source": "runtime trace summary",
+  "trace_lines": 6341,
+  "trace_size_bytes_approx": 73000,
+  "lcg": {
+    "seed_bias": 240,
+    "mult": 93,
+    "inc": 155,
+    "xor": 240
+  },
+  "blocks": [
+    {"index": 1, "seed_in": 164, "seed0": 148, "size": 20936},
+    {"index": 2, "seed_in": 325, "seed0": 53, "size": 186},
+    {"index": 3, "seed_in": 229, "seed0": 213, "size": 462},
+    {"index": 4, "seed_in": 129, "seed0": 113, "size": 7397},
+    {"index": 5, "seed_in": 305, "seed0": 33, "size": 2479},
+    {"index": 6, "seed_in": 339, "seed0": 67, "size": 231},
+    {"index": 7, "seed_in": 347, "seed0": 75, "size": 640},
+    {"index": 8, "seed_in": 281, "seed0": 9, "size": 578},
+    {"index": 9, "seed_in": 187, "seed0": 171, "size": 738},
+    {"index": 10, "seed_in": 283, "seed0": 11, "size": 250},
+    {"index": 11, "seed_in": 211, "seed0": 195, "size": 3693}
+  ],
+  "block_count": 11,
+  "total_decoded_bytes": 37590,
+  "common_post_block_observation": {
+    "marker": "A321",
+    "first": 1,
+    "next": 145
+  },
+  "correction": {
+    "old_model_path": [121, 9, 438, 365],
+    "status": "SUPERSEDED",
+    "reason": "state 121 returns 42 directly in this build; state 42 returns 48 through B:T"
+  },
+  "remaining_for_full_offline_decode": "capture source base offset q/J for each A99 invocation"
+}
