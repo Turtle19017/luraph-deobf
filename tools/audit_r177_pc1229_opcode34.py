@@ -10,8 +10,9 @@ string_repair_xor=177 ("getmetatable"). The established opcode34 lazy-repair
 semantics use w as the payload XOR key and the proto/index field to choose the
 lazy constant.
 
-If all independent anchors agree, pc1229 is classified as a reachable lazy
-string-repair site, NOT a direct BR[177] write merely because w==177.
+If all independent anchors agree, pc1229 is classified as receipt-supported
+selector121 lazy-repair semantics, NOT a direct BR[177] write merely because
+w==177. This does not by itself prove an execution timestamp for pc1229.
 """
 from __future__ import annotations
 
@@ -83,7 +84,7 @@ def main() -> int:
 
     fail = sum(x["status"] == "FAIL" for x in checks)
     classification = (
-        "REACHABLE_SELECTOR121_LAZY_REPAIR_NOT_DIRECT_R177_WRITE"
+        "RECEIPT_SUPPORTED_SELECTOR121_LAZY_REPAIR_NOT_DIRECT_R177_WRITE"
         if fail == 0
         else "UNKNOWN"
     )
