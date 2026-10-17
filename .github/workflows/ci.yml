@@ -27,6 +27,9 @@ jobs:
       - name: R177 write-order obligations
         run: python tools/audit_r177_write_order.py --json-out /tmp/r177_write_order_obligations.json
 
+      - name: R177 writer-census regression
+        run: python -m unittest tests.test_r177_writer_census -v
+
   extractors:
     runs-on: ubuntu-latest
     steps:
