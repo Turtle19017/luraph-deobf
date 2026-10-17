@@ -131,15 +131,42 @@ def resolve_dest(expr: str, aliases: dict[str, str]) -> dict:
     return {"kind": "expression", "expr": expr}
 
 
+def iter_br_assignment_lhs(body: str):
+    """Yield (offset, inner_expr) for direct top-level BR[expr] assignments."""
+    pos = 0
+    while True:
+        start = body.find("BR[", pos)
+        if start < 0:
+            return
+        i = start + 3
+        depth = 1
+        while i < len(body) and depth:
+            if body[i] == "[":
+                depth += 1
+            elif body[i] == "]":
+                depth -= 1
+            i += 1
+        if depth:
+            return
+
+        expr = body[start + 3:i - 1]
+        j = i
+        while j < len(body) and body[j].isspace():
+            j += 1
+        if j < len(body) and body[j] == "=":
+            if not (j + 1 < len(body) and body[j + 1] == "="):
+                yield start, expr
+        pos = i
+
+
 def direct_br_writes(body: str, aliases: dict[str, str]) -> list[dict]:
-    rows = []
-    for m in re.finditer(r"BR\[([^\[\]]+)\]\s*=", body):
-        if m.end() < len(body) and body[m.end()] == "=":
-            continue
-        rows.append({
-            "offset": m.start(),
-            "destination": resolve_dest(m.group(1), aliases),
-        })
+    rows = [
+        {
+            "offset": offset,
+            "destination": resolve_dest(expr, aliases),
+        }
+        for offset, expr in iter_br_assignment_lhs(body)
+    ]
 
     seen = set()
     out = []
