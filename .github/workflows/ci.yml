@@ -39,6 +39,9 @@ jobs:
       - name: R177 pc1229 refinement regression
         run: python -m unittest tests.test_r177_pc1229_refine -v
 
+      - name: R177 producer-predecessor census regression
+        run: python -m unittest tests.test_r177_producer_predecessor_census -v
+
   extractors:
     runs-on: ubuntu-latest
     steps:
