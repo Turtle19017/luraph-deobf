@@ -24,6 +24,9 @@ jobs:
       - name: R177 receipt-only route audit
         run: python tools/audit_r177_route.py --json-out /tmp/r177_offline_route_audit.json
 
+      - name: R177 write-order obligations
+        run: python tools/audit_r177_write_order.py --json-out /tmp/r177_write_order_obligations.json
+
   extractors:
     runs-on: ubuntu-latest
     steps:
