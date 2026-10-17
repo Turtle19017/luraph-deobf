@@ -223,6 +223,12 @@ def all_named_calls(body: str) -> list[dict]:
     return rows
 
 
+def partition_requested_opcodes(wanted: list[int], clauses: dict[int, str]):
+    present = [op for op in wanted if op in clauses]
+    absent = [op for op in wanted if op not in clauses]
+    return present, absent
+
+
 def footprint(op: int, body: str) -> dict:
     aliases = alias_map(body)
     direct = direct_br_writes(body, aliases)
@@ -292,11 +298,13 @@ def main() -> int:
         clauses = split_t_dispatch(branch)
 
         wanted = sorted(set(args.opcodes or DEFAULT_OPCODES))
-        missing = [op for op in wanted if op not in clauses]
-        if missing:
-            raise ValueError(f"requested opcodes absent from mode233 dispatch: {missing}")
+        present, absent = partition_requested_opcodes(wanted, clauses)
 
-        fps = {str(op): footprint(op, clauses[op]) for op in wanted}
+        # The writer census is intentionally mode-unresolved. Therefore an
+        # opcode number observed in the final lane image is not required to
+        # exist in mode233. Analyze only the intersection and preserve the
+        # absent set as an explicit mode gap instead of failing.
+        fps = {str(op): footprint(op, clauses[op]) for op in present}
         result = {
             "schema": "luraph-deobf.mode233-handler-write-footprints.v1",
             "target_sha256": TARGET_SHA256,
@@ -307,6 +315,14 @@ def main() -> int:
                 "opcode_clause_count": len(clauses),
             },
             "requested_opcodes": wanted,
+            "present_in_mode233_dispatch": present,
+            "absent_from_mode233_dispatch": absent,
+            "absent_interpretation": (
+                "These opcode numbers came from mode-unresolved lane sites. "
+                "Absence from the mode233 dispatch means mode233 semantics "
+                "must not be applied to those sites; it does not prove their "
+                "runtime mode or reachability."
+            ),
             "footprints": fps,
             "scope": "source handler write footprints only; no execution/reachability proof",
             "no_target_execution": True,
@@ -323,6 +339,9 @@ def main() -> int:
         for fp in fps.values():
             counts[fp["classification"]] = counts.get(fp["classification"], 0) + 1
         print(f"mode233 opcode clauses: {len(clauses)}")
+        print(f"requested opcodes: {len(wanted)}")
+        print(f"present in mode233: {len(present)}")
+        print(f"absent from mode233: {len(absent)}")
         print(f"requested footprints: {len(fps)}")
         for key in sorted(counts):
             print(f"{key}: {counts[key]}")
