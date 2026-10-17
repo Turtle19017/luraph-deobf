@@ -36,6 +36,9 @@ jobs:
       - name: R177 census-footprint join regression
         run: python -m unittest tests.test_r177_census_footprint_join -v
 
+      - name: R177 pc1229 refinement regression
+        run: python -m unittest tests.test_r177_pc1229_refine -v
+
   extractors:
     runs-on: ubuntu-latest
     steps:
