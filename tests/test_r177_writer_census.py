@@ -24,6 +24,17 @@ class R177WriterCensusBulkCollectorTests(unittest.TestCase):
         self.assertEqual(mask, 127)
         self.assertEqual(50 ^ mask, 77)
 
+    def test_unpromoted_s7_site_remains_mode_unresolved(self):
+        promoted = {2150, 3504, 3363}
+        self.assertEqual(
+            census.opcode7_site_status(180, promoted),
+            "MODE_UNRESOLVED_OPCODE7_LIKE_SITE",
+        )
+        self.assertEqual(
+            census.opcode7_site_status(2150, promoted),
+            "PROMOTED_MODE233_OPCODE7_PRODUCER",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
