@@ -42,5 +42,12 @@ class Mode233HandlerFootprintTests(unittest.TestCase):
         self.assertEqual(row["classification"], "DIRECT_BR_WRITE_FOOTPRINT")
 
 
+    def test_requested_opcode_partition_preserves_absent_as_gap(self):
+        clauses = {1: "BR[s[l]]=BR[H[l]];", 21: fp.OP21_EXACT_BODY}
+        present, absent = fp.partition_requested_opcodes([1, 11, 21, 30], clauses)
+        self.assertEqual(present, [1, 21])
+        self.assertEqual(absent, [11, 30])
+
+
 if __name__ == "__main__":
     unittest.main()
