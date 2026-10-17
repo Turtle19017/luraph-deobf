@@ -129,6 +129,14 @@ def model_value(model, arrays, pc):
     return int(arrays[model["field"]][pc]) + int(model["delta"])
 
 
+def opcode7_site_status(pc: int, promoted_producer_pcs: set[int]) -> str:
+    return (
+        "PROMOTED_MODE233_OPCODE7_PRODUCER"
+        if pc in promoted_producer_pcs
+        else "MODE_UNRESOLVED_OPCODE7_LIKE_SITE"
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("script", type=Path)
@@ -223,7 +231,8 @@ def main() -> int:
                     "s": int(s[pc]),
                     "H": int(H[pc]),
                 }
-                if pc in promoted_producer_pcs:
+                site_status = opcode7_site_status(pc, promoted_producer_pcs)
+                if site_status == "PROMOTED_MODE233_OPCODE7_PRODUCER":
                     # Only these three sites have receipt-backed mode233 opcode7
                     # semantics. Other S==7 slots may belong to another VM mode
                     # or an unproven route and must not inherit this handler.
@@ -242,14 +251,14 @@ def main() -> int:
                         "register_end": end,
                         "return_count": nret,
                         "hits": hits,
-                        "status": "PROMOTED_MODE233_OPCODE7_PRODUCER",
+                        "status": site_status,
                     })
                 else:
                     mode_unresolved_opcode7_sites.append({
                         "pc": pc,
                         "opcode": 7,
                         "tuple": raw_tuple,
-                        "status": "MODE_UNRESOLVED_OPCODE7_LIKE_SITE",
+                        "status": site_status,
                         "note": (
                             "S==7 alone does not establish mode233 opcode7 semantics; "
                             "range/count interpretation is intentionally not applied."
