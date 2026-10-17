@@ -23,7 +23,7 @@ from pathlib import Path
 
 from extract_r177_writer_census import (
     BLOCK1_SHA256,
-    MODE233_RECEIPTS,
+    RECEIPTS,
     ROOT,
     bulk_ops,
     digest,
@@ -112,7 +112,7 @@ def main() -> int:
         lane_xor(S, w, s, H, 11, 93, 4349)
 
         promoted = {}
-        for rel in MODE233_RECEIPTS:
+        for rel in RECEIPTS:
             obj = json.loads((args.repo_root / rel).read_text(encoding="utf-8"))
             for op in bulk_ops(obj, rel):
                 key = (op["seed"], op["start"], op["length"])
