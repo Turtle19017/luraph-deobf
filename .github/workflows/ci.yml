@@ -30,6 +30,9 @@ jobs:
       - name: R177 writer-census regression
         run: python -m unittest tests.test_r177_writer_census -v
 
+      - name: Mode233 handler-footprint regression
+        run: python -m unittest tests.test_mode233_handler_footprints -v
+
   extractors:
     runs-on: ubuntu-latest
     steps:
