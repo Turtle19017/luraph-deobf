@@ -1,0 +1,54 @@
+{
+  "schema": "luraph-deobf.vm68-r177-producer-bank-overwrite.v1",
+  "target_sha256": "02dc0c6a922796ad4773cbd051745225e4d6bf84d61c9b8c666be71b57f58443",
+  "source_validation": {
+    "opcode7_anchor_count": 1,
+    "local_audit_artifact": "_probe/r177_producer_banks.audit.json",
+    "artifact_tracked": false,
+    "claim": "mode233 opcode7 writes returned values starting at the same register that held the callee; return #1 overwrites the callee register"
+  },
+  "producers": [
+    {
+      "pc": 2150,
+      "function_register": 61,
+      "return_count": 224,
+      "return_destination": "R61..R284",
+      "r177_return_ordinal": 117,
+      "callee_register_after_call": "R61 = return #1"
+    },
+    {
+      "pc": 3504,
+      "function_register": 117,
+      "return_count": 90,
+      "return_destination": "R117..R206",
+      "r177_return_ordinal": 61,
+      "callee_register_after_call": "R117 = return #1"
+    },
+    {
+      "pc": 3363,
+      "function_register": 155,
+      "return_count": 48,
+      "return_destination": "R155..R202",
+      "r177_return_ordinal": 23,
+      "callee_register_after_call": "R155 = return #1"
+    }
+  ],
+  "probe_implication": {
+    "affected_fields": ["eq_R61", "eq_R117", "eq_R155"],
+    "interpretation": "At pc3784 these compare R177 against the current register values, not against preserved identities of the original opcode7 callees.",
+    "true_is_not_provenance": true,
+    "false_is_not_provenance": true
+  },
+  "ordering": {
+    "last_writer": "UNKNOWN",
+    "reason": "Bank overlap and return ordinals do not establish execution order or exclude intervening writes.",
+    "proof_registers": [117, 155, 177],
+    "proof_obligations": [
+      "enumerate all writes to R117 before pc3504 and identify the last one",
+      "enumerate all writes to R155 before pc3363 and identify the last one",
+      "enumerate all writes to R177 before pc3784 and identify the last one",
+      "establish dynamic/offline control order of pc2150, pc3504, pc3363 on the source-supported route",
+      "do not infer producer identity from eq_R61/eq_R117/eq_R155"
+    ]
+  }
+}
