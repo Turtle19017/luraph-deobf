@@ -21,6 +21,9 @@ jobs:
         # no unverified universal offset-base claim, no stale doc references
         run: python tools/selfcheck.py
 
+      - name: R177 receipt-only route audit
+        run: python tools/audit_r177_route.py --json-out /tmp/r177_offline_route_audit.json
+
   extractors:
     runs-on: ubuntu-latest
     steps:
