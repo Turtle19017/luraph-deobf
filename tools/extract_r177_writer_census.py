@@ -75,7 +75,14 @@ def lane_xor(S, w, s, H, seed: int, start: int, length: int) -> None:
 def bulk_ops(obj, path=""):
     out = []
     if isinstance(obj, dict):
-        if all(k in obj for k in ("seed", "start", "length", "end")) and "bulk" in path.lower():
+        has_range = all(k in obj for k in ("seed", "start", "length", "end"))
+        semantic = str(obj.get("semantic", "")).lower()
+        labelled_bulk = (
+            "bulk" in path.lower()
+            or "bulk xor" in semantic
+            or "bulk-xor" in semantic
+        )
+        if has_range and labelled_bulk:
             seed = int(obj["seed"])
             start = int(obj["start"])
             length = int(obj["length"])
@@ -88,6 +95,7 @@ def bulk_ops(obj, path=""):
                 "start": start,
                 "length": length,
                 "end": end,
+                "semantic": obj.get("semantic"),
             })
         for key, value in obj.items():
             out.extend(bulk_ops(value, path + "/" + str(key)))
@@ -151,6 +159,16 @@ def main() -> int:
             for op in bulk_ops(obj, rel):
                 key = (op["seed"], op["start"], op["length"])
                 promoted.setdefault(key, op)
+
+        # Regression guard: selector107 pc1582 stores its bulk-XOR record under
+        # deterministic_path/5, with the label in the semantic field rather
+        # than in the JSON key path. Missing it leaves pc652 at pre-XOR opcode
+        # 50 instead of promoted opcode77.
+        required_1582 = (113, 639, 26)
+        if required_1582 not in promoted:
+            raise ValueError(
+                "missing promoted pc1582 bulk XOR (seed=113,start=639,length=26)"
+            )
 
         # All these transforms are lane XORs, so exact promoted transforms may
         # be applied once each; overlap/order does not alter the final XOR sum.
