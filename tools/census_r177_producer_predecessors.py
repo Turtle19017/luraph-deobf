@@ -50,7 +50,7 @@ def scan_target(S, w, s, H, target: int) -> dict:
     operand_hits = []
     r37_cohits = []
 
-    for pc in range(85, 4442):
+    for pc in range(85, len(S)):
         fields = {
             "w": int(w[pc]),
             "s": int(s[pc]),
