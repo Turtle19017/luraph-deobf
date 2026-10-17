@@ -210,18 +210,31 @@ def main() -> int:
         start_model = infer_field_model(arrays, producers, "start")
         count_model = infer_field_model(arrays, producers, "count")
 
+        promoted_producer_pcs = {int(row["pc"]) for row in producers}
         opcode7_candidates = []
+        mode_unresolved_opcode7_sites = []
         operand_hits = []
         for pc in range(85, 4442):
             opcode = int(S[pc])
             if opcode == 7:
-                start = model_value(start_model, arrays, pc)
-                nret = model_value(count_model, arrays, pc)
-                if nret < 0 or nret > 10000:
-                    raise ValueError(f"implausible opcode7 count at pc{pc}: {nret}")
-                end = start + nret - 1
-                hits = [reg for reg in TRACKED if start <= reg <= end]
-                if hits:
+                raw_tuple = {
+                    "S": int(S[pc]),
+                    "w": int(w[pc]),
+                    "s": int(s[pc]),
+                    "H": int(H[pc]),
+                }
+                if pc in promoted_producer_pcs:
+                    # Only these three sites have receipt-backed mode233 opcode7
+                    # semantics. Other S==7 slots may belong to another VM mode
+                    # or an unproven route and must not inherit this handler.
+                    start = model_value(start_model, arrays, pc)
+                    nret = model_value(count_model, arrays, pc)
+                    if nret < 0 or nret > 10000:
+                        raise ValueError(
+                            f"promoted opcode7 producer has implausible count at pc{pc}: {nret}"
+                        )
+                    end = start + nret - 1
+                    hits = [reg for reg in TRACKED if start <= reg <= end]
                     opcode7_candidates.append({
                         "pc": pc,
                         "opcode": 7,
@@ -229,6 +242,18 @@ def main() -> int:
                         "register_end": end,
                         "return_count": nret,
                         "hits": hits,
+                        "status": "PROMOTED_MODE233_OPCODE7_PRODUCER",
+                    })
+                else:
+                    mode_unresolved_opcode7_sites.append({
+                        "pc": pc,
+                        "opcode": 7,
+                        "tuple": raw_tuple,
+                        "status": "MODE_UNRESOLVED_OPCODE7_LIKE_SITE",
+                        "note": (
+                            "S==7 alone does not establish mode233 opcode7 semantics; "
+                            "range/count interpretation is intentionally not applied."
+                        ),
                     })
             else:
                 fields = {"w": int(w[pc]), "s": int(s[pc]), "H": int(H[pc])}
@@ -245,7 +270,7 @@ def main() -> int:
                             "s": int(s[pc]),
                             "H": int(H[pc]),
                         },
-                        "status": "UNRESOLVED_HANDLER_WRITE_SEMANTICS",
+                        "status": "UNRESOLVED_MODE_AND_HANDLER_WRITE_SEMANTICS",
                     })
 
         expected = {
@@ -294,6 +319,7 @@ def main() -> int:
             },
             "known_bank_checks": known_bank_checks,
             "opcode7_candidates_touching_tracked": opcode7_candidates,
+            "mode_unresolved_opcode7_like_sites": mode_unresolved_opcode7_sites,
             "non_opcode7_operand_hits": operand_hits,
             "gaps": [
                 {
@@ -302,6 +328,14 @@ def main() -> int:
                     "meaning": (
                         "Concrete operands equal tracked registers, but handler "
                         "write footprints are not yet modeled."
+                    ),
+                },
+                {
+                    "kind": "MODE_UNRESOLVED_OPCODE7_LIKE_SITES",
+                    "count": len(mode_unresolved_opcode7_sites),
+                    "meaning": (
+                        "S==7 outside the three promoted producer PCs does not "
+                        "establish mode233 opcode7 semantics."
                     ),
                 },
                 {
@@ -334,7 +368,8 @@ def main() -> int:
             )
 
         print(f"promoted mode233 bulk XORs: {len(promoted)}")
-        print(f"opcode7 tracked-writer candidates: {len(opcode7_candidates)}")
+        print(f"opcode7 promoted tracked-writer candidates: {len(opcode7_candidates)}")
+        print(f"mode-unresolved S==7 sites: {len(mode_unresolved_opcode7_sites)}")
         print(f"non-opcode7 tracked operand hits: {len(operand_hits)}")
         print("proof: INCOMPLETE_WRITER_CENSUS")
         print("complete_for_registers: []")
