@@ -213,11 +213,22 @@ def br_value_calls(body: str) -> list[dict]:
     return rows
 
 
+def all_named_calls(body: str) -> list[dict]:
+    rows = []
+    keywords = {"if", "elseif", "for", "while", "function", "return"}
+    for m in re.finditer(r"\b([A-Za-z_]\w*)\s*\(", body):
+        name = m.group(1)
+        if name not in keywords:
+            rows.append({"name": name, "offset": m.start()})
+    return rows
+
+
 def footprint(op: int, body: str) -> dict:
     aliases = alias_map(body)
     direct = direct_br_writes(body, aliases)
     helper = helper_calls_with_br(body)
     value_calls = br_value_calls(body)
+    all_calls = all_named_calls(body)
     lane_rewrites = sorted(set(
         m.group(1)
         for m in re.finditer(r"\b([SswH])\[l\]\s*=", body)
@@ -239,9 +250,9 @@ def footprint(op: int, body: str) -> dict:
         if row["destination"]["kind"] == "expression"
     ]
 
-    if direct and not unknown_dests and not helper:
+    if direct and not unknown_dests and not helper and not all_calls:
         cls = "DIRECT_BR_WRITE_FOOTPRINT"
-    elif not direct and not helper and not value_calls:
+    elif not direct and not all_calls:
         cls = "NO_TOP_LEVEL_BR_WRITE_OBSERVED"
     else:
         cls = "MIXED_OR_SIDE_EFFECT_GAP"
@@ -256,6 +267,7 @@ def footprint(op: int, body: str) -> dict:
         "unknown_direct_dest_expressions": unknown_dests,
         "helper_calls_with_BR": helper,
         "calls_through_BR_values": value_calls,
+        "all_named_calls": all_calls,
         "lane_self_rewrites": lane_rewrites,
         "body_sha256": sha256(body.encode("utf-8")),
         "body_length": len(body),
