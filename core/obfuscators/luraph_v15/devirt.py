@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import re
 import struct
@@ -21,6 +22,9 @@ from luasym import ContinueSig
 from ir import (IRStmt, Assign, CallStmt, SetList, GenIter, Outcome, Next, Ret, Crash, Node,  
                 ForPrep, Close, Opaque, Vec, Missing, fmt_expr, fmt_any, fmt_tail, fmt_multi, fmt_const,
                 fmt_stmt, fmt_node)
+
+_FRONTIER_TEMP_PRODUCERS = {}
+_TEMP_BUF_AMBIGUOUS = object()
 
 class PatchLog(dict):
     """A patch dict that remembers the keys written since the last `take()`
@@ -93,6 +97,7 @@ class Dump:
         self.lfs = {}
         self.shared = {}        
         self.buf_loc = {}       
+        self.temp_bufs = {}
         self._load_tables(d["tables"])
 
         self.buf_patch = PatchLog()
@@ -116,6 +121,7 @@ class Dump:
         self._by_operand = self._operand_facts()
 
         self.fetcher = None
+        self.shared_tables = {}
         self.fetched = set()
         self._fetched_any = False
         self.fetch_time = [0.0, 0.0, 0.0, 0]    
@@ -161,6 +167,8 @@ class Dump:
         the live harness, instead of in the next constant round. Its new
         tables join the dump. -> the value, or None (no harness, failed,
         or asked before)."""
+        if os.environ.get("DEVIRT_REQUEST_DEBUG"):
+            print("[CONSTREQ] " + json.dumps({"request": rq}), file=sys.stderr)
         if self.fetcher is None or rq in self.fetched:
             return None
         self.fetched.add(rq)
@@ -404,6 +412,20 @@ class SharedFn(Global):
     def __init__(self, fn, n):
         Global.__init__(self, "luraph_runtime%d" % n)
         self.fn = fn
+
+class SharedTableRef(Global):
+    """A captured runtime table the payload receives by reference.
+
+    The payload cannot rebuild this table (its function values come from the VM
+    object), and every read must observe one identity, so it is emitted once as a
+    named declaration instead of being copied per assignment.
+    """
+
+    def __init__(self, table, n, items):
+        Global.__init__(self, "luraph_table%d" % n)
+        self.table = table
+        self.tid = table.tid
+        self.items = items
 
 class PlainProto:
     """A plain Lua function (e.g. preserved source) that captures outer locals."""
@@ -934,6 +956,219 @@ WALK_LIMIT = int(os.environ.get("DEVIRT_WALK_LIMIT", 250000))
 
 MAX_STACK_DEPTHS = 8     
 STACK_WALK_MAX = 30000   
+MAX_TRANSPORT_CHAIN = 256
+
+
+def transport_signature(state, link):
+    key = state.key(link)
+    return (key[0],) + key[2:]
+
+
+def transparent_transport(node, state, successors, facts_in, link):
+    """Only a single, effect-free fallthrough may transport a VM state."""
+    if (node is None or node.stmts or node.cond is not None
+            or node.then is not None or node.els is not None
+            or getattr(node, "error", None)
+            or getattr(node, "transport_effects", False)
+            or not isinstance(node.outcome, Next) or len(successors) != 1):
+        return False
+    ns, facts_out = successors[0]
+    return (node.outcome.state is ns
+            and isinstance(state.pc, int) and isinstance(ns.pc, int)
+            and ns.mode == state.mode and ns.pc == state.pc + 1
+            and transport_signature(ns, link) == transport_signature(state, link)
+            and facts_out == facts_in)
+
+
+def thread_transport(state, facts, link, get_node, lifter,
+                     max_chain=MAX_TRANSPORT_CHAIN):
+    """Chase proved NOPs; retain their keys as explicit edge provenance.
+
+    `get_node` stages ordinary stepped nodes. None signals a pending carry
+    restart. Nontransparent/error nodes are left at the returned boundary.
+    """
+    seen, skipped = set(), []
+    while len(skipped) < max_chain:
+        key = state.key(link)
+        if key in seen:
+            break
+        seen.add(key)
+        signature = transport_signature(state, link)
+        node = get_node(state)
+        if (node is None or node.stmts or node.cond is not None
+                or node.then is not None or node.els is not None
+                or getattr(node, "error", None)
+                or getattr(node, "transport_effects", False)
+                or not isinstance(node.outcome, Next)):
+            break
+        successors = []
+        restart = propagate(node, dict(facts), successors, lifter)
+        if (restart or transport_signature(state, link) != signature
+                or not transparent_transport(node, state, successors, facts, link)):
+            break
+        ns, facts_out = successors[0]
+        if ns.key(link) in seen:
+            break
+        skipped.append(key)
+        state, facts = ns, facts_out
+    return state, facts, tuple(skipped)
+
+
+def redirect_transport(node, original, replacement):
+    """Keep IR outcome targets consistent with the threaded worklist graph."""
+    todo = [node]
+    while todo:
+        current = todo.pop()
+        if current is None:
+            continue
+        if isinstance(current.outcome, Next) and current.outcome.state is original:
+            current.outcome = Next(replacement)
+        todo.extend((current.then, current.els))
+
+def _debug_index_tree(lf, x, depth=0, seen=None):
+    """Compact expression tree for DEVIRT_INDEX_DEBUG diagnostics."""
+    if seen is None:
+        seen = set()
+    if depth > 8:
+        return {"type": "..."}
+    if id(x) in seen:
+        return {"type": type(x).__name__, "cycle": True}
+    seen.add(id(x))
+    if isinstance(x, Reg):
+        return {"type": "Reg", "n": x.n}
+    if isinstance(x, Const):
+        return {"type": "Const", "v": repr(x.v)[:240]}
+    if isinstance(x, SymList):
+        origins = [r for r, c in lf.pack_copies.items() if c is x]
+        direct = [r for r, p in lf.packs.items() if p is x]
+        return {"type": "SymList", "origins": origins, "direct_origins": direct,
+                "items": [_debug_index_tree(lf, v, depth + 1, seen.copy()) for v in x.items[:16]],
+                "tail": repr(x.tail)[:240], "nkey": repr(x.nkey)}
+    if isinstance(x, Index):
+        out = {"type": "Index", "obj": _debug_index_tree(lf, x.obj, depth + 1, seen.copy()),
+               "key": _debug_index_tree(lf, x.key, depth + 1, seen.copy())}
+        if isinstance(x.obj, SymList) and isinstance(x.key, Const) and isinstance(x.key.v, int):
+            slot = x.key.v
+            out["selected_slot"] = ({"index": slot, "value": _debug_index_tree(
+                lf, x.obj.items[slot - 1], depth + 1, seen.copy())}
+                if 1 <= slot <= len(x.obj.items) else {"index": slot, "value": "out-of-range"})
+        return out
+    if isinstance(x, Bin):
+        return {"type": "Bin", "op": x.op, "a": _debug_index_tree(lf, x.a, depth + 1, seen.copy()),
+                "b": _debug_index_tree(lf, x.b, depth + 1, seen.copy())}
+    if isinstance(x, (tuple, list)):
+        return {"type": type(x).__name__,
+                "items": [_debug_index_tree(lf, v, depth + 1, seen.copy()) for v in x[:16]]}
+    return {"type": type(x).__name__, "repr": repr(x)[:240]}
+
+
+def _tm_desc(value):
+    desc = {"type": type(value).__name__, "repr": fmt_any(value)}
+    if isinstance(value, Reg):
+        desc["reg"] = value.n
+    if isinstance(value, SymList):
+        desc.update({"items": len(value.items),
+                     "tail": type(value.tail).__name__ if value.tail else None,
+                     "nkey": repr(value.nkey), "extra": len(value.extra)})
+    if isinstance(value, LTable):
+        desc["tid"] = value.tid
+    return desc
+
+
+class PackedSourceValidator:
+    """Bound container expansion separately from cheap literal-leaf checks.
+
+    Every reachable pack item is inspected. Edge work includes source-item
+    identity comparisons and recursive source checks, so sharing cannot turn
+    validation into unbounded repeated work. No result is usable on failure.
+    """
+
+    def __init__(self, max_containers=100000, max_edges=1000000):
+        self.max_containers = max_containers
+        self.max_edges = max_edges
+        self.containers = 0
+        self.edges = 0
+        self.checked = 0
+        self.sources = set()
+        self.failure = None
+        self._source_children = {}
+
+    def _edges(self, count):
+        self.edges += count
+        if self.edges > self.max_edges:
+            self.failure = "edge_budget"
+            return False
+        return True
+
+    def _unchanged(self, value, seen=None, depth=0):
+        if depth > 16:
+            self.failure = "source_depth"
+            return False
+        seen = set() if seen is None else seen
+        if id(value) in seen:
+            return True
+        seen.add(id(value))
+        children = self._source_children.get(id(value))
+        if children is None:
+            if not isinstance(getattr(value, "source_table", None), LTable):
+                self.failure = "source_table"
+                return False
+            if isinstance(value, S.NewTable):
+                if value.items:
+                    self.failure = "source_literal_changed"
+                    return False
+                children = ()
+            else:
+                if not isinstance(value, SymList) or value.tail is not None or value.extra \
+                        or value.nkey != getattr(value, "source_nkey", None):
+                    self.failure = "source_pack_shape"
+                    return False
+                original = getattr(value, "source_items", ())
+                if not self._edges(2 * len(value.items)):
+                    return False
+                if len(original) != len(value.items) or any(a is not b for a, b in zip(original, value.items)):
+                    self.failure = "source_items_changed"
+                    return False
+                children = tuple(item for item in value.items if hasattr(item, "source_table"))
+            # Local identities/shapes are immutable during this synchronous
+            # validation. Cache those checks only, never a recursive result:
+            # depth and seen/cycle checks remain specific to each traversal.
+            self._source_children[id(value)] = children
+        if not self._edges(len(children)):
+            return False
+        return all(self._unchanged(item, seen, depth + 1) for item in children)
+
+    def validate(self, packed):
+        self.containers = self.edges = self.checked = 0
+        self.sources.clear()
+        self._source_children.clear()
+        self.failure = None
+        pending, checked, sources = [packed], set(), []
+        while pending:
+            value = pending.pop()
+            if id(value) in checked:
+                continue
+            checked.add(id(value))
+            self.checked += 1
+            # Even leaves must be examined for provenance; a late malformed
+            # source marker may not be skipped just because its value is Const.
+            if hasattr(value, "source_table"):
+                sources.append(value)
+            if isinstance(value, SymList):
+                self.containers += 1
+                if self.containers > self.max_containers:
+                    self.failure = "container_budget"
+                    return False
+                if not self._edges(len(value.items)):
+                    return False
+                pending.extend(value.items)
+        for value in sources:
+            if not self._unchanged(value):
+                self.sources.clear()
+                return False
+            self.sources.add(id(value))
+        return True
+
 
 class ProtoLifter:
     """Steps the instructions of one proto."""
@@ -943,9 +1178,15 @@ class ProtoLifter:
         self.vm = vm
         self.vmobj = vmobj
         self.dump = dump
+        self.temp_bufs = dump.temp_bufs
         self.special = vm.special
         self.globals_tab = globals_tab
         self.out = []
+        self.temp_defs = {}
+        self.step_facts = None
+        self.frame_entry_facts = {}
+        self.frontier_temp_producers = {}
+        self.frontier_ir_history = []
         self.temp_prefix = ""
         self.tcount = 0
         self.proto_arrays = set()
@@ -1015,6 +1256,38 @@ class ProtoLifter:
         return self.vm.is_dispatch(node)
 
     def emit(self, st):
+        if getattr(self, "step_facts", None) is not None:
+            if isinstance(st, Assign) and isinstance(st.target, Reg):
+                fv = fact_of(st.value)
+                if fv is None and isinstance(st.value, Reg):
+                    fv = self.step_facts.get(st.value.n)
+                if fv is None:
+                    self.step_facts.pop(st.target.n, None)
+                else:
+                    self.step_facts[st.target.n] = fv
+            elif isinstance(st, CallStmt):
+                if any(isinstance(x, FrameArg) for x in st.args.items):
+                    self.step_facts.clear()
+                else:
+                    for reg in self.captured_regs:
+                        self.step_facts.pop(reg, None)
+            elif isinstance(st, (Assign, SetList, ForPrep)):
+                self.step_facts.clear()
+        if isinstance(st, CallStmt):
+            self.temp_defs[st.t] = st
+            if os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+                entry = {
+                    "stmt": st,
+                    "last_op": repr(self.last_op),
+                    "history_index": len(self.frontier_ir_history),
+                    "proto": self.frame_debug_proto_id(),
+                    "vm_tag": getattr(self.vm, "tag", None),
+                    "lifter": self,
+                }
+                self.frontier_temp_producers[st.t] = entry
+                _FRONTIER_TEMP_PRODUCERS.setdefault(st.t, []).append(entry)
+        if os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+            self.frontier_ir_history.append((repr(self.last_op), st))
         if isinstance(st, Assign) and isinstance(st.target, Reg):
             if isinstance(st.value, SymList):
                 self.packs[st.target.n] = st.value
@@ -1043,6 +1316,59 @@ class ProtoLifter:
             st.jump = True
         self.out.append(st)
 
+    def temp_producer_debug(self, value):
+        if not isinstance(value, TempVal):
+            return None
+        stmt = self.temp_defs.get(value.t)
+        if stmt is None:
+            return {"temp": value.t, "result": value.i, "producer": "NOT_FOUND"}
+        return {
+            "temp": value.t,
+            "result": value.i,
+            "fn_type": type(stmt.fn).__name__,
+            "fn": fmt_expr(stmt.fn),
+            "args": fmt_multi(stmt.args),
+            "arg_types": [type(arg).__name__ for arg in stmt.args.items],
+            "tail_type": type(stmt.args.tail).__name__ if stmt.args.tail is not None else None,
+        }
+
+    def frontier_buffer_producer_debug(self, value):
+        if not isinstance(value, TempVal):
+            return None
+        entries = _FRONTIER_TEMP_PRODUCERS.get(value.t, [])
+        if not entries:
+            return {"temp": value.t, "result": value.i, "producer": "NOT_FOUND"}
+        candidates = []
+        for entry in entries:
+            lifter = entry["lifter"]
+            stmt = entry["stmt"]
+            writes = []
+            for op, candidate in lifter.frontier_ir_history[entry["history_index"] + 1:]:
+                if not isinstance(candidate, CallStmt) or not isinstance(candidate.fn, Global):
+                    continue
+                if not candidate.fn.name.startswith("buffer.write"):
+                    continue
+                uses_temp = any(
+                    isinstance(expr, TempVal) and expr.t == value.t and expr.i == value.i
+                    for arg in candidate.args.items for expr in walk_expr(arg)
+                )
+                if uses_temp:
+                    writes.append({"last_op": op, "ir": fmt_stmt(candidate)})
+            candidates.append({
+                "proto": entry["proto"],
+                "vm_tag": entry["vm_tag"],
+                "fn_type": type(stmt.fn).__name__,
+                "fn": fmt_expr(stmt.fn),
+                "args": fmt_multi(stmt.args),
+                "arg_types": [type(arg).__name__ for arg in stmt.args.items],
+                "producer_last_op": entry["last_op"],
+                "ir_after_producer_referencing_same_buffer": writes,
+                "intervening_buffer_write_count": len(writes),
+                "producer_stmt": fmt_stmt(stmt),
+            })
+        return {"temp": value.t, "result": value.i,
+                "read_last_op": repr(self.last_op), "candidates": candidates}
+
     def new_temp(self):
         self.tcount += 1
         return "%s%d" % (self.temp_prefix, self.tcount)
@@ -1065,6 +1391,12 @@ class ProtoLifter:
         if sp == "sink":
             return
         if sp[0] in ("reg", "jstack", "upval") and self.in_prologue:
+            if sp[0] == "reg" and sp[1] == 0:
+                fact = fact_of(v if isinstance(v, Expr) else Const(v))
+                if fact is None:
+                    self.frame_entry_facts.pop(0, None)
+                else:
+                    self.frame_entry_facts[0] = fact
             return      
         if sp[0] == "upval":
             self.emit(Assign(Upval(sp[1]), self.value_of(v)))
@@ -1275,6 +1607,8 @@ class ProtoLifter:
 
             t = self.new_temp()
             self.emit(CallStmt(t, Global("buffer.fromstring"), Multi([Const(bytes(v.data))])))
+            old = self.temp_bufs.get(t)
+            self.temp_bufs[t] = v if old is None or old is v else _TEMP_BUF_AMBIGUOUS
             return TempVal(t, 1)
         if isinstance(v, Builtin) and v.fn is None:
 
@@ -1416,25 +1750,104 @@ class ProtoLifter:
         b = rhs()
         return Bin("And" if kind == "and" else "Or", self.as_expr(a), self.as_expr(b))
 
+    def pack_identity_reg(self, x):
+        """The one register a packed multi-value was materialized from."""
+        if not isinstance(x, SymList):
+            return None
+        hits = [r for r, c in self.pack_copies.items() if c is x]
+        if not hits:
+            hits = [r for r, p in self.packs.items() if p is x]
+        return hits[0] if len(hits) == 1 else None
+
+    def debug_register_read(self, key, source, before, value):
+        rec = {
+            "kind": "read", "state_key": self.regread_debug_state,
+            "proto": self.frame_debug_proto_id(),
+            "phase": self.regread_debug_phase,
+            "bridge_enabled": bool(os.environ.get("DEVIRT_ENTRY_FACTS_BRIDGE")),
+            "register": key, "chosen_source": source,
+            "bridge_fact": repr((self.step_facts or {}).get(key)),
+            "sccp_fact": repr(getattr(self, "regread_debug_facts", {}).get(key)),
+            "jval_present": key in self.jvals,
+            "jval": repr(self.jvals.get(key)),
+            "in_jump_regs": key in self.jump_regs, "in_packs": key in self.packs,
+            "jread_before": before, "jread_after": sorted(self.jread),
+            "result": fmt_any(value), "last_op": repr(self.last_op),
+        }
+        print("[REGREAD11945] " + json.dumps(rec, default=repr, sort_keys=True), file=sys.stderr)
+        return value
+
     def index(self, obj, key, it):
         if isinstance(obj, Multi):
             obj = obj.first()
         if isinstance(key, Multi):
             key = key.first()
+        # Const is an IR wrapper around an already-known literal. Concrete
+        # table/list lookups must use the literal value, not the wrapper.
+        if isinstance(key, Const):
+            key = key.v
+        if isinstance(obj, SharedTableRef):
+            if isinstance(key, SymList) and os.environ.get("DEVIRT_PACKKEY_DEBUG"):
+                print("[PACKKEY] table_tid=%r copy_origins=%r direct_origins=%r"
+                      " items=%r tail=%r nkey=%r" % (
+                          getattr(obj, "tid", None),
+                          [r for r, c in self.pack_copies.items() if c is key],
+                          [r for r, p in self.packs.items() if p is key],
+                          [fmt_any(x) for x in key.items[:12]],
+                          fmt_any(key.tail) if key.tail is not None else None,
+                          key.nkey),
+                      file=sys.stderr)
+            if is_sym(key):
+                return Index(obj, self.as_expr(key))
+            # The symbolic side still observes the captured table itself.
+            return self.index(obj.table, key, it)
         if isinstance(obj, RegFile):
             if is_sym(key):
                 arr = self.reg_array(key)
                 if arr is None:
+                    if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                        self.last_frame_failure = {
+                            "kind": "symbolic_register_index",
+                            "proto": self.frame_debug_proto_id(),
+                            "key_type": type(key).__name__,
+                            "key_fmt": fmt_expr(key),
+                            "key_tree": _debug_index_tree(self, key),
+                            "stack_base": self.stack_base,
+                            "last_op": repr(self.last_op),
+                            "recent_ir": [fmt_stmt(x) for x in self.out[-8:]],
+                        }
                     raise Unsupported("symbolic register index")
                 return Index(*arr)
             k = S.norm_key(key)
+            debug_before = sorted(self.jread) if getattr(self, "regread_debug_active", False) else None
             if isinstance(k, (int, float)) and k < 1 and self.stack_base is not None:
+                # A proved fresh-frame nil slot needs no raw register access.
+                # Unknown slot-zero reads and all underflow stores still fail.
+                if os.environ.get("DEVIRT_ZERO_SLOT_FACT") and k == 0 \
+                        and (self.step_facts or {}).get(0) == ("c", None):
+                    return None
+                if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                    self.last_frame_failure = {
+                        "kind": "below_stack",
+                        "proto": self.frame_debug_proto_id(),
+                        "proto_tid": getattr(self.proto, "tid", None),
+                        "vm_tag": getattr(self.vm, "tag", None),
+                        "walk_only": self.walk_only,
+                        "raw_key_type": type(key).__name__,
+                        "raw_key": fmt_any(key),
+                        "register": k,
+                        "stack_base": self.stack_base,
+                        "last_op": repr(self.last_op),
+                        "jvals": repr(self.jvals)[:2000],
+                        "jump_regs": sorted(self.jump_regs),
+                    }
                 raise Unsupported("read below the stack VM's frame (register %s)" % k)
             if self.jvals.get(k) is FRAME:
-                return obj
+                return self.debug_register_read(k, "FRAME", debug_before, obj) if debug_before is not None else obj
             if k in self.jvals:
                 self.jread.add(k)
-                return self.jvals[k]
+                value = self.jvals[k]
+                return self.debug_register_read(k, "JVAL", debug_before, value) if debug_before is not None else value
             if k in self.packs:
                 self.pack_read.add(k)
                 c = self.pack_copies.get(k)
@@ -1443,8 +1856,12 @@ class ProtoLifter:
                     c = SymList(src.items, src.tail, src.nkey)
                     c.extra = dict(src.extra)
                     self.pack_copies[k] = c
-                return c
-            return Reg(k)
+                return self.debug_register_read(k, "PACK", debug_before, c) if debug_before is not None else c
+            fact = (getattr(self, "step_facts", None) or {}).get(k)
+            if fact is not None and fact[0] == "c":
+                return self.debug_register_read(k, "ENTRY_FACT", debug_before, fact[1]) if debug_before is not None else fact[1]
+            value = Reg(k)
+            return self.debug_register_read(k, "RAW_REG", debug_before, value) if debug_before is not None else value
         if isinstance(obj, EnvTable):
             if isinstance(key, bytes):
                 return Global(key.decode("latin-1"))
@@ -1453,6 +1870,22 @@ class ProtoLifter:
             return Upval(obj.idx)
         if isinstance(obj, UpList):
             if not isinstance(key, int):
+                if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                    self.last_frame_failure = {
+                        "kind": "upvalue_index",
+                        "proto": self.frame_debug_proto_id(),
+                        "proto_tid": getattr(self.proto, "tid", None),
+                        "vm_tag": getattr(self.vm, "tag", None),
+                        "walk_only": self.walk_only,
+                        "key_type": type(key).__name__,
+                        "key_fmt": fmt_any(key),
+                        "key_tree": _debug_index_tree(self, key),
+                        "producer": self.temp_producer_debug(key),
+                        "last_op": repr(self.last_op),
+                        "frames": sorted(obj.frames),
+                        "known_boxes": sorted(obj.boxes),
+                        "stack_base": self.stack_base,
+                    }
                 raise Unsupported("upvalue index %r" % (key,))
             return obj.get(key)
         if isinstance(obj, FrameProxy):
@@ -1485,8 +1918,27 @@ class ProtoLifter:
                     return Missing(None)
                 if os.environ.get("DEVIRT_TB"):
                     print("   table tid=%s path=%s items=%s" % (obj.tid, self.dump.paths().get(obj.tid), str(list(obj.h.items())[:12])), file=sys.stderr)
+                if os.environ.get("DEVIRT_INDEX_DEBUG"):
+                    self.last_index_failure = {
+                        "table_tid": obj.tid,
+                        "table_path": self.dump.paths().get(obj.tid),
+                        "table_keys": [repr(k)[:160] for k in list(obj.h)[:64]],
+                        "table_value_types": [type(v).__name__ for v in list(obj.h.values())[:64]],
+                        "lazy": obj.tid in self.dump.lazy,
+                        "pid": self.dump.pid_of_table.get(obj.tid),
+                        "key_fmt": fmt_expr(key)[:2000],
+                        "key_tree": _debug_index_tree(self, key),
+                    }
                 raise Unsupported("symbolic index into a concrete VM table (key %s)" % fmt_expr(key))
             v = obj.get(key)
+            if os.environ.get("DEVIRT_DESCRIPTOR_DEBUG") and isinstance(v, S.NewTable):
+                print("[DESCRIPTOR] " + json.dumps({
+                    "proto": self.frame_debug_proto_id(), "table_tid": obj.tid,
+                    "table_path": self.dump.paths().get(obj.tid),
+                    "is_proto": obj is self.proto, "is_proto_array": id(obj) in self.proto_arrays,
+                    "key": repr(key), "value_items": repr(v.items),
+                    "last_op": repr(getattr(self, "last_op", None)),
+                }, default=repr, sort_keys=True), file=sys.stderr)
             if self.ov_base is not None and obj.tid is not None:
                 v = self.cur_ov().get((id(obj), S.norm_key(key)), v)
             if v is None and (obj.tid, S.norm_key(key)) in self.dump.late:
@@ -1551,6 +2003,13 @@ class ProtoLifter:
             return lst.count_expr()
         if isinstance(key, int) and key >= 1:
             if key <= len(lst.items):
+                if os.environ.get("DEVIRT_DESCRIPTOR_DEBUG") and isinstance(lst.items[key - 1], S.NewTable):
+                    print("[DESCRIPTOR] " + json.dumps({
+                        "proto": self.frame_debug_proto_id(), "container": "SymList",
+                        "key": key, "items": len(lst.items),
+                        "value_items": repr(lst.items[key - 1].items),
+                        "last_op": repr(getattr(self, "last_op", None)),
+                    }, default=repr, sort_keys=True), file=sys.stderr)
                 return lst.items[key - 1]
             if lst.tail is not None:
                 return lst.tail.at(key - len(lst.items))
@@ -1564,20 +2023,55 @@ class ProtoLifter:
     def newindex(self, obj, key, v, it):
         if isinstance(key, Multi):
             key = key.first()
+        if isinstance(key, Const):
+            key = key.v
         if isinstance(obj, RegFile):
+            if getattr(self, "in_prologue", False) and key == 0:
+                fact = fact_of(v if isinstance(v, Expr) else Const(v))
+                if fact is None:
+                    self.frame_entry_facts.pop(0, None)
+                else:
+                    self.frame_entry_facts[0] = fact
             if is_sym(key):
                 arr = self.reg_array(key)
                 if arr is None:
+                    if os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+                        self.last_frontier_failure = {
+                            "kind": "symbolic_register_store",
+                            "key_type": type(key).__name__,
+                            "key": fmt_expr(key),
+                            "key_tree": _debug_index_tree(self, key),
+                            "value_type": type(v).__name__,
+                            "value": fmt_any(v),
+                            "stack_base": self.stack_base,
+                            "last_op": repr(self.last_op),
+                            "recent_ir": [fmt_stmt(x) for x in self.out[-8:]],
+                        }
                     raise Unsupported("symbolic register store")
                 self.emit(Assign(Index(*arr), self.value_of(v)))
                 return
             if isinstance(v, RegFile):
+                if os.environ.get("DEVIRT_ZERO_SLOT_FACT") and key == 0 \
+                        and self.stack_base is not None:
+                    raise Unsupported("store below the stack VM's frame (register 0)")
+                if getattr(self, "step_facts", None) is not None:
+                    self.step_facts.pop(S.norm_key(key), None)
                 self.jvals[S.norm_key(key)] = FRAME
                 return
             if isinstance(key, (int, float)) and key < 1 and self.stack_base is not None:
+                if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                    self.last_frame_failure = {
+                        "kind": "below_stack_store", "proto": self.frame_debug_proto_id(),
+                        "register": key, "stack_base": self.stack_base,
+                        "last_op": repr(self.last_op), "value": fmt_any(v),
+                        "jvals": repr(self.jvals), "jump_regs": sorted(self.jump_regs),
+                        "step_facts": repr(self.step_facts),
+                    }
                 raise Unsupported("store below the stack VM's frame (register %s)" % key)
             self.emit(Assign(Reg(S.norm_key(key)), self.value_of(v)))
             return
+        if isinstance(obj, SharedTableRef):
+            raise Unsupported("store into shared runtime table")
         if isinstance(obj, FrameProxy):
             if not isinstance(key, int):
                 raise Unsupported("symbolic store into a captured frame")
@@ -1649,6 +2143,12 @@ class ProtoLifter:
             self.ov = Overlay(self.ov_base)
         self.ov.set(key, v, base)
 
+    def step_condition_truth(self, cond):
+        if self.step_facts is None:
+            return None
+        # Truthiness facts may decide a condition, never a RegFile value read.
+        return truth_of(eval_fact(cond, self.step_facts))
+
     def check_decision(self, cond):
 
         if any(isinstance(x, Missing) for x in walk_expr(cond)):
@@ -1678,16 +2178,62 @@ class ProtoLifter:
                 nkey = b"n"
                 if all(isinstance(k, int) or k == nkey for k in v.h):
                     items = [self.value_of(v.h.get(i)) for i in range(1, max((k for k in v.h if isinstance(k, int)), default=0) + 1)]
-                    return SymList(items, None, nkey=nkey if nkey in v.h else None)
+                    packed = SymList(items, None, nkey=nkey if nkey in v.h else None)
+                    if os.environ.get("DEVIRT_PACKED_TABLE_PROVENANCE"):
+                        packed.source_table = v
+                        packed.source_items = tuple(items)
+                        packed.source_nkey = packed.nkey
+                    return packed
+                if os.environ.get("DEVIRT_TABLE_DEBUG"):
+                    tid = self.dump.tid_of.get(id(v))
+                    path = self.dump.paths().get(tid) if tid is not None else None
+                    keys = list(v.h.keys())
+                    print("[TABLEDBG] tid=%r v_tid=%r in_dump=%r proto_array=%r proto_self=%r"
+                          " pid=%r lazy=%r path=%r keys=%r value_types=%r" % (
+                              tid, getattr(v, "tid", None), tid is not None,
+                              id(v) in self.proto_arrays, v is self.proto,
+                              self.dump.pid_of_table.get(tid) if tid is not None else None,
+                              tid in self.dump.lazy if tid is not None else False,
+                              path, keys[:32], [type(v.h[k]).__name__ for k in keys[:32]]),
+                          file=sys.stderr)
+                tid = self.dump.tid_of.get(id(v))
+                if (tid is not None and id(v) not in self.proto_arrays
+                        and v is not self.proto
+                        and self.dump.pid_of_table.get(tid) is None
+                        and tid not in self.dump.lazy):
+                    cached = self.dump.shared_tables.get(tid)
+                    if cached is not None:
+                        return cached
+                    items = []
+                    for key, raw in v.h.items():
+                        if not (isinstance(key, bytes)
+                                and re.fullmatch(rb"[A-Za-z_][A-Za-z0-9_]*", key)):
+                            raise Unsupported("shared runtime table has unsupported key %r" % (key,))
+                        expr = self.as_expr(raw)
+                        if not isinstance(expr, (Const, Global, SharedFn)):
+                            raise Unsupported("shared runtime table has unsupported value %r" % (raw,))
+                        items.append((key.decode("latin-1"), expr))
+                    ref = SharedTableRef(v, len(self.dump.shared_tables) + 1, items)
+                    self.dump.shared_tables[tid] = ref
+                    return ref
                 raise Unsupported("storing a non-empty VM table into a register")
-            return S.NewTable()
+            literal = S.NewTable()
+            if os.environ.get("DEVIRT_PACKED_TABLE_PROVENANCE"):
+                literal.source_table = v
+            return literal
         return self.as_expr(v)
 
     def call_builtin(self, fn, args, it, stat):
         name = fn.name
         a = args
+        if name.startswith("buffer.") and a.items:
+            values = list(a.items)
+            values[0] = self.resolve_temp_buf(values[0])
+            a = Multi(values, a.tail)
         if name in ("table.create",):
             if self.in_prologue:
+                # Luau table.create fills only positive array indices.
+                self.frame_entry_facts[0] = ("c", None)
                 return RegFile()
             return LTable()
         if name == "getfenv":
@@ -1722,13 +2268,28 @@ class ProtoLifter:
             if r is not NotImplemented:
                 return r
         if name in S.CONCRETE:
-            vals = a.items
+            vals = [x.v if isinstance(x, Const) else x for x in a.items]
             if a.tail is not None or any(is_sym(x) or isinstance(x, (SymList, Multi)) for x in vals):
                 if name.startswith("bit32.") and a.tail is None and all(is_sym(x) or isinstance(x, int) for x in vals):
 
                     t = self.new_temp()
                     self.emit(CallStmt(t, Global(name), Multi([self.value_of(x) for x in vals])))
                     return Multi([], TempTail(t))
+                if name in ("buffer.readu8", "buffer.readi8") \
+                        and os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+                    self.last_frontier_failure = {
+                        "kind": "buffer_read",
+                        "name": name,
+                        "arg_types": [type(x).__name__ for x in vals],
+                        "args": [fmt_any(x) for x in vals],
+                        "tail": type(a.tail).__name__ if a.tail is not None else None,
+                        "buffer_type": type(vals[0]).__name__ if vals else None,
+                        "offset_type": type(vals[1]).__name__ if len(vals) > 1 else None,
+                        "offset": fmt_any(vals[1]) if len(vals) > 1 else None,
+                        "buffer_producer": self.frontier_buffer_producer_debug(vals[0])
+                        if vals and isinstance(vals[0], TempVal) else None,
+                        "last_op": repr(self.last_op),
+                    }
                 raise Unsupported("builtin %s on symbolic values" % name)
             try:
                 r = S.CONCRETE[name](*vals)
@@ -1736,6 +2297,12 @@ class ProtoLifter:
                 raise Unsupported("%s failed: %s" % (name, ex))
             return r
         raise Unsupported("builtin " + name)
+
+    def resolve_temp_buf(self, value):
+        if isinstance(value, TempVal) and value.i == 1:
+            buf = self.temp_bufs.get(value.t, value)
+            return value if buf is _TEMP_BUF_AMBIGUOUS else buf
+        return value
 
     def buffer_op(self, name, args):
         """Byte reads/writes of VM buffers go through the path overlay."""
@@ -1797,6 +2364,19 @@ class ProtoLifter:
         src, f, e, t, dst = (a.items + [None] * 5)[:5]
         if dst is None:
             dst = src
+        if is_sym(e) and os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+            self.last_frontier_failure = {
+                "kind": "table_move",
+                "from_type": type(f).__name__,
+                "from": repr(f),
+                "end_type": type(e).__name__,
+                "end": repr(e),
+                "to_type": type(t).__name__,
+                "to": repr(t),
+                "source_type": type(src).__name__,
+                "destination_type": type(dst).__name__,
+                "last_op": repr(self.last_op),
+            }
         if isinstance(src, SymList) and src is dst:
 
             if f == 1 and isinstance(t, int):
@@ -1817,6 +2397,32 @@ class ProtoLifter:
                                Multi([self.value_of(x) if x is not None else Const(None) for x in a.items])))
             return dst
         if is_sym(e):
+            if os.environ.get("DEVIRT_TMOVE_DEBUG"):
+                rec = {
+                    "kind": "table_move_symbolic_end",
+                    "src": _tm_desc(src),
+                    "from": _tm_desc(f),
+                    "end": _tm_desc(e),
+                    "target": _tm_desc(t),
+                    "dst": _tm_desc(dst),
+                    "src_is_dst": src is dst,
+                    "last_op": repr(self.last_op),
+                    "recent_ir": [fmt_stmt(x) for x in self.out[-12:]],
+                    "pack_count": fmt_any(src.count_expr()) if isinstance(src, SymList) else None,
+                    "call_producer": self.temp_producer_debug(src.tail.at(1))
+                    if isinstance(src, SymList) and isinstance(src.tail, TempTail) else None,
+                }
+                if isinstance(e, Reg):
+                    rec["end_reg"] = e.n
+                    rec["end_reg_def"] = None
+                    for stmt in reversed(self.out):
+                        if isinstance(stmt, Assign) and isinstance(stmt.target, Reg) \
+                                and stmt.target.n == e.n:
+                            rec["end_reg_def"] = fmt_stmt(stmt)
+                            rec["end_reg_value_type"] = type(stmt.value).__name__
+                            rec["end_reg_value"] = fmt_any(stmt.value)
+                            break
+                self.last_frontier_failure = rec
             raise Unsupported("table.move with symbolic end")
         n = e - f + 1
         for k in range(n):
@@ -1886,6 +2492,77 @@ class ProtoLifter:
     def vm_fn_node(self, fn):
         return fn.node
 
+    def frame_debug_proto_id(self):
+        proto = self.proto
+        if isinstance(proto, LTable) and proto.tid is not None:
+            return "tid:%s" % proto.tid
+        if isinstance(proto, LTable):
+            parts = []
+            for i in range(1, 31):
+                try:
+                    parts.append(fmt_any(proto.h.get(i)))
+                except Exception:
+                    parts.append(type(proto.h.get(i)).__name__)
+            raw = "\x1f".join(parts).encode("utf-8", "backslashreplace")
+            return "packed:" + hashlib.sha256(raw).hexdigest()[:16]
+        return type(proto).__name__
+
+    def packed_proto_table(self, packed):
+        """Reify only a closed, finite packed list as an ephemeral table."""
+        if not isinstance(packed, SymList):
+            return None
+        if packed.tail is not None or packed.extra:
+            return None
+        if packed.nkey not in (None, b"n"):
+            return None
+        if any(isinstance(x, Missing) for x in packed.items):
+            return None
+
+        preserve_sources = bool(os.environ.get("DEVIRT_PACKED_TABLE_PROVENANCE"))
+        validator = PackedSourceValidator()
+        if preserve_sources:
+            if not validator.validate(packed):
+                return None
+
+        def unchanged_source(value):
+            return id(value) in validator.sources
+
+        if preserve_sources and unchanged_source(packed):
+            return packed.source_table
+        table = LTable()
+        literals = {id(packed): table}
+
+        def reify_literal(value, depth=0):
+            # Packed metadata can contain a materialized empty table literal
+            # (notably an empty closure-upvalue descriptor). Interpret that
+            # literal as a fresh VM table, not a symbolic runtime table read.
+            # Preserve aliases and leave nonclosed/dynamic values untouched.
+            if id(value) in literals:
+                return literals[id(value)]
+            if preserve_sources and unchanged_source(value):
+                literals[id(value)] = value.source_table
+                return value.source_table
+            if isinstance(value, S.NewTable) and not value.items:
+                result = literals[id(value)] = LTable()
+                return result
+            if depth < 8 and isinstance(value, SymList) and value.tail is None \
+                    and not value.extra and value.nkey in (None, b"n"):
+                result = SymList([], None, nkey=value.nkey)
+                literals[id(value)] = result
+                result.items = [reify_literal(item, depth + 1) for item in value.items]
+                return result
+            return value
+
+        for i, value in enumerate(packed.items, 1):
+            if isinstance(value, Const):
+                value = value.v
+            value = reify_literal(value)
+            if value is not None:
+                table.set(i, value)
+        if packed.nkey is not None:
+            table.set(packed.nkey, len(packed.items))
+        return table
+
     def make_closure(self, args, vm=None):
         """A VM closure of the proto in args; vm: the interpreter (VMModel)
         whose maker was called, when it is not this proto's."""
@@ -1898,7 +2575,77 @@ class ProtoLifter:
                 any(isinstance(x, Missing) for x in walk_expr(proto)):
 
             return Missing(None)
+        if os.environ.get("DEVIRT_PACKED_PROTO") and isinstance(proto, SymList):
+            candidate = self.packed_proto_table(proto)
+            if candidate is None:
+                raise Unsupported("closure of unsupported packed proto")
+            proto = candidate
         if not isinstance(proto, LTable):
+            if isinstance(proto, SymList) and os.environ.get("DEVIRT_PACKED_PROTO_DEBUG"):
+                fingerprints = getattr(self, "_packed_proto_fingerprints", set())
+                fingerprint = (len(proto.items), repr(proto.tail), repr(proto.nkey),
+                               tuple(sorted(map(repr, proto.extra.keys()))),
+                               tuple(type(x).__name__ for x in proto.items),
+                               tuple(repr(x)[:160] for x in proto.items))
+                if fingerprint not in fingerprints:
+                    fingerprints.add(fingerprint)
+                    self._packed_proto_fingerprints = fingerprints
+                    print("[PACKEDPROTO] " + json.dumps({
+                        "len": len(proto.items),
+                        "tail": repr(proto.tail),
+                        "nkey": repr(proto.nkey),
+                        "extra_keys": [repr(k) for k in proto.extra.keys()],
+                        "item_types": [type(x).__name__ for x in proto.items],
+                        "items": [repr(x)[:160] for x in proto.items],
+                    }, default=repr, sort_keys=True), file=sys.stderr)
+            if os.environ.get("DEVIRT_CLOSURE_DEBUG"):
+                def _desc(v):
+                    if isinstance(v, LTable):
+                        return {"type": "LTable", "tid": v.tid,
+                                "path": self.dump.paths().get(v.tid),
+                                "pid": self.dump.pid_of_table.get(v.tid),
+                                "lazy": v.tid in self.dump.lazy,
+                                "keys": [repr(k) for k in list(v.h)[:16]]}
+                    if isinstance(v, OpaqueFn):
+                        node = v.node
+                        return {"type": "OpaqueFn", "lfid": v.lfid, "pf_tid": v.pf_tid,
+                                "node_loc": node.get("location") if isinstance(node, dict) else None,
+                                "is_current_maker": node is self.vm.maker if node is not None else False,
+                                "sibling_vm": (id(node) in getattr(self.vm, "siblings", {})
+                                               if node is not None else False)}
+                    if isinstance(v, Const):
+                        return {"type": "Const", "v": repr(v.v)}
+                    if isinstance(v, SymList):
+                        return {"type": "SymList", "len": len(v.items), "tail": repr(v.tail)}
+                    return {"type": type(v).__name__, "repr": repr(v)[:500]}
+
+                maker_args = vm.maker.get("args", [])
+                record = {
+                    "proto_index": pi,
+                    "upvals_index": ui,
+                    "argc": len(vals),
+                    "args": [_desc(x) for x in vals],
+                    "proto": _desc(proto),
+                    "ups": _desc(ups),
+                    "maker_args": [{"i": i, "name": a.get("name"),
+                                    "location": a.get("location")}
+                                   for i, a in enumerate(maker_args)],
+                    "maker_location": vm.maker.get("location"),
+                }
+                print("[CLOSUREFAIL] " + json.dumps(record, default=repr, sort_keys=True),
+                      file=sys.stderr)
+
+                if not getattr(self, "_debugged_t18_57", False):
+                    self._debugged_t18_57 = True
+                    t18 = self.dump.tables.get(18)
+                    if t18 is not None:
+                        base57 = t18.h.get(57)
+                        late57 = self.dump.late.get((18, 57))
+                        print("[T18_57] " + json.dumps({
+                            "value": _desc(base57),
+                            "late": _desc(late57) if (18, 57) in self.dump.late else None,
+                            "decoder": self.dump.decoder.get(18),
+                        }, default=repr, sort_keys=True), file=sys.stderr)
             raise Unsupported("closure of non-proto")
         entries = []
         if isinstance(ups, LTable):
@@ -2035,6 +2782,10 @@ def eval_fact(e, facts):
         return None if t is None else ("c", not t)
     if isinstance(e, Bin) and e.op.startswith("Compare"):
         a, b = eval_fact(e.a, facts), eval_fact(e.b, facts)
+        if isinstance(e.a, SharedTableRef) and isinstance(e.b, SharedTableRef) \
+                and e.op in ("CompareEq", "CompareNe"):
+            same = e.a.tid == e.b.tid
+            return ("c", same if e.op == "CompareEq" else not same)
         if a and b and a[0] == "c" and b[0] == "c":
             try:
                 x, y = a[1], b[1]
@@ -2082,8 +2833,8 @@ def edge_facts(cond, taken, facts):
 def apply_stmt_facts(st, facts, lf):
     if isinstance(st, Assign) and isinstance(st.target, Reg):
         fv = fact_of(st.value)
-        if fv is None and isinstance(st.value, Reg):
-            fv = facts.get(st.value.n)
+        if fv is None:
+            fv = eval_fact(st.value, facts)
         if fv is None:
             facts.pop(st.target.n, None)
         else:
@@ -2106,6 +2857,10 @@ def apply_stmt_facts(st, facts, lf):
             for r in list(facts):
                 if r in lf.captured_regs:
                     del facts[r]
+    elif isinstance(st, (Assign, SetList, ForPrep)):
+        # Do not carry the fresh-frame zero-slot proof through indirect effects.
+        if os.environ.get("DEVIRT_ZERO_SLOT_FACT"):
+            facts.pop(0, None)
 
 def frame_call(st, facts, lf):
     """A call that gets the caller's register frame (FrameArg), of a closure
@@ -2245,9 +3000,59 @@ class _AccessLog(dict):
             self.read_first.add(k)
         return dict.__getitem__(self, k)
 
+    def get(self, k, default=None):
+        if k in self and k not in self.written:
+            self.read_first.add(k)
+        return dict.get(self, k, default)
+
     def __setitem__(self, k, v):
         self.written.add(k)
         dict.__setitem__(self, k, v)
+
+def useful_scope_reads(read_first, local_reads, copy_reads, escaping, events=None):
+    """Ignore a plain local-copy read only when its new lexical local is dead.
+
+    This does not ignore register reads, side-effecting expressions, reads
+    outside local initializers, or locals potentially captured by closures.
+    """
+    read_decls = {decl for decl, _ in local_reads}
+    result = set(read_first)
+    for decl in read_first:
+        if events is not None:
+            source_reads = []
+            for pos, (kind, name, location) in enumerate(events):
+                if kind == "write" and name == decl:
+                    break
+                if kind == "read" and name == decl:
+                    source_reads.append((pos, location))
+            dead = bool(source_reads)
+            for pos, location in source_reads:
+                target = copy_reads.get(location)
+                if target is None or target in escaping:
+                    dead = False
+                    break
+                # The first target write is this local declaration's binding.
+                binding = next((i for i in range(pos + 1, len(events))
+                                if events[i][0] == "write" and events[i][1] == target), None)
+                if binding is None:
+                    dead = False
+                    break
+                for kind, name, _ in events[binding + 1:]:
+                    if name == target:
+                        if kind == "read":
+                            dead = False
+                        break
+                if not dead:
+                    break
+            if dead:
+                result.discard(decl)
+            continue
+        sites = [location for source, location in local_reads if source == decl]
+        if sites and all(location in copy_reads and copy_reads[location] not in read_decls
+                         and copy_reads[location] not in escaping for location in sites):
+            result.discard(decl)
+    return result
+
 
 class Stepper:
     def __init__(self, vm, lifter):
@@ -2294,6 +3099,21 @@ class Stepper:
         self.written = set()
         self.not_carried = set()
         self.new_carry = False
+        if not hasattr(vm, "_carry_copy_reads"):
+            copies, escaping = {}, set()
+            for _, _, loop in self.loops:
+                for node in iter_nodes(loop["body"]):
+                    if node.get("type") == "AstStatLocal" \
+                            and len(node.get("vars", [])) == len(node.get("values", [])):
+                        for target, value in zip(node["vars"], node["values"]):
+                            if value.get("type") == "AstExprLocal":
+                                copies[value.get("location")] = target["location"]
+            for node in iter_nodes(vm.vm):
+                if node.get("type") == "AstExprFunction" and node is not vm.vm:
+                    escaping.update(expr["local"]["location"] for expr in iter_nodes(node)
+                                    if expr.get("type") == "AstExprLocal")
+            vm._carry_copy_reads = copies, escaping
+        self.copy_reads, self.escaping_locals = vm._carry_copy_reads
         self.fixed_decls = {d for d in (self.pc_decl, self.mode_decl, vm.kstack_key) if d}
         self.sp_cands = self._stack_pointer_candidates()
         if not hasattr(vm, "_mode_loop_cache"):
@@ -2348,6 +3168,15 @@ class Stepper:
         for k in sorted(self.carry):
             v = inner.vars.get(k)
             if not (isinstance(v, int) and not isinstance(v, bool)):
+                if os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+                    print("[CARRYFAIL] " + json.dumps({
+                        "proto": self.lf.frame_debug_proto_id(),
+                        "local_decl": k, "value_type": type(v).__name__,
+                        "value": repr(v), "last_op": repr(getattr(self.lf, "last_op", None)),
+                        "carry": sorted(self.carry), "fixed_decls": sorted(self.fixed_decls),
+                        "step_facts": repr(getattr(self.lf, "step_facts", None)),
+                        "recent_ir": [fmt_stmt(stmt) for stmt in self.lf.out[-12:]],
+                    }, default=repr, sort_keys=True), file=sys.stderr)
                 raise Unsupported("symbolic value of a VM local carried between instructions (%r)" % (v,))
             out.append((k, v))
         return tuple(out)
@@ -2373,9 +3202,14 @@ class Stepper:
                 inner.vars[k] = v
         return cs, inner
 
-    def run_once(self, state, decisions, tprefix):
+    def run_once(self, state, decisions, tprefix, facts=None):
         lf = self.lf
+        lf.regread_debug_active = bool(os.environ.get("DEVIRT_REGREAD_DEBUG")) \
+            and state is not None and (state.mode, state.pc) == (93, 11945)
+        lf.regread_debug_phase = "prologue"
+        lf.step_facts = dict(facts) if facts is not None else None
         lf.out = []
+        lf.temp_defs = {}
         lf.tcount = 0
         lf.temp_prefix = tprefix
         lf.mutated = False
@@ -2390,6 +3224,8 @@ class Stepper:
         it = S.Interp(lf)
         it.decisions = list(decisions)
         cs, inner = self._fresh_scopes(state, it)
+        it.scope_event_start = len(it.local_events)
+        lf.regread_debug_phase = "handler"
         inner.vars = acc = _AccessLog(inner.vars)
         loop_i = self._mode_loop_cache.get(state.mode) if state is not None else None
         if loop_i is None:
@@ -2432,7 +3268,7 @@ class Stepper:
         if outcome[0] == "ret":
             m = outcome[1] if isinstance(outcome[1], Multi) else Multi([outcome[1]])
             outcome = ("ret", Multi([lf.value_of(x) if not isinstance(x, SymList) else x for x in m.items], m.tail))
-        self._note_access(acc)
+        self._note_access(acc, it)
         if outcome[0] == "next":
             def get(k):
                 return inner.lookup(k).vars[k]
@@ -2447,15 +3283,31 @@ class Stepper:
                 jr = tuple(sorted((k, v) for k, v in lf.jvals.items() if k not in lf.jread))
             nxt = State(get(self.mode_decl) if self.mode_decl else 0, get(self.pc_decl), get(self.vm.kstack_key) if self.vm.kstack_key else None,
                         jr, None, lf.state_packs(), locs)
+            if lf.regread_debug_active:
+                print("[REGREAD11945] " + json.dumps({
+                    "kind": "successor", "state_key": lf.regread_debug_state,
+                    "proto": lf.frame_debug_proto_id(),
+                    "bridge_enabled": bool(os.environ.get("DEVIRT_ENTRY_FACTS_BRIDGE")),
+                    "pc": fmt_any(nxt.pc), "mode": fmt_any(nxt.mode),
+                    "successor_key": repr(nxt.key(self.vm.kstack_link)),
+                    "pc_regs": [r.n for r in expr_regs(nxt.pc)],
+                    "mode_regs": [r.n for r in expr_regs(nxt.mode)],
+                    "jump_regs": sorted(lf.jump_regs), "jvals": repr(lf.jvals),
+                    "jread": sorted(lf.jread), "input_jregs": repr(state.jregs),
+                    "output_jregs": repr(nxt.jregs), "last_op": repr(lf.last_op),
+                    "decisions": decisions, "ir": [fmt_stmt(stmt) for stmt in lf.out],
+                }, default=repr, sort_keys=True), file=sys.stderr)
             return it, Next(nxt)
         return it, Ret(outcome[1])
 
-    def _note_access(self, acc):
+    def _note_access(self, acc, it):
         """Collect which prologue locals handlers read first / write; a new
         carried local (see __init__) sets `new_carry`."""
         if getattr(self, "no_carry", False):
             return
-        self.read_first |= acc.read_first
+        self.read_first |= useful_scope_reads(acc.read_first, it.local_reads,
+                                              self.copy_reads, self.escaping_locals,
+                                              it.local_events[it.scope_event_start:])
         self.written |= acc.written
         for k in (self.read_first & self.written & self.sp_cands) - self.carry - self.not_carried - self.fixed_decls:
             v = dict.get(acc, k)
@@ -2479,7 +3331,7 @@ class Stepper:
             return r.values
         return Multi([])
 
-    def step(self, state, tprefix):
+    def step(self, state, tprefix, facts=None):
         """All paths of one instruction -> Node tree. Decoders re-dispatch."""
         for _ in range(8):
             paths = []
@@ -2487,7 +3339,7 @@ class Stepper:
             todo = [[]]
             while todo:
                 dec = todo.pop()
-                it, oc = self.run_once(state, dec, tprefix)
+                it, oc = self.run_once(state, dec, tprefix, facts=facts)
                 if len(paths) > 64:
                     raise Unsupported("too many paths in one instruction")
                 taken = [d[3] for d in it.dlog]
@@ -2512,6 +3364,7 @@ class Stepper:
                 continue
             node = build_tree(paths, 0, 0)
             node.op = self.lf.last_op
+            node.transport_effects = bool(self.lf.mutated or (writes is not None and writes.d))
             return node
         raise Unsupported("instruction keeps re-decoding itself")
 
@@ -2809,15 +3662,17 @@ class JitStepper(Stepper):
     def initial(self):
         return State(0, JIT_ENTRY, JIT_BOTTOM)
 
-    def step(self, state, tprefix):
-        node = Stepper.step(self, state, tprefix)
+    def step(self, state, tprefix, facts=None):
+        node = Stepper.step(self, state, tprefix, facts=facts)
         _jit_forloop(node, self.lf)
         return node
 
-    def run_once(self, state, decisions, tprefix):
+    def run_once(self, state, decisions, tprefix, facts=None):
         lf = self.lf
+        lf.step_facts = dict(facts) if facts is not None else None
         vm = self.vm
         lf.out = []
+        lf.temp_defs = {}
         lf.tcount = 0
         lf.temp_prefix = tprefix
         lf.mutated = False
@@ -2836,6 +3691,7 @@ class JitStepper(Stepper):
             cs, inner = self._fresh_scopes(state, it, entry)
             if not entry:
                 lf.out = []         
+                lf.temp_defs = {}
                 ended = False
                 try:
                     it.exec_block(vm.inner_body[vm.wi]["body"]["body"], Scope(inner))
@@ -3054,51 +3910,175 @@ class Program:
         one edge, so Luraph's opaque predicates never lead into junk code
         (which would also run bogus in-place decryptors).
         Returns (entry, [(key, node)], restart)."""
+        lf.step_facts = None
         s0 = st.initial()
         link = vm.kstack_link
         nodes = {}          
+        node_entry_facts = {}
+        order_positions = {}
         states = {}         
         facts = {}          
         order = []
         self.pred = {}
         self.edges = {}     
+        self.transport_edges = {}
         work = [s0.key(link)]
         states[work[0]] = s0
         facts[work[0]] = {}
+        if os.environ.get("DEVIRT_ZERO_SLOT_FACT") \
+                and getattr(lf, "frame_entry_facts", {}).get(0) == ("c", None):
+            facts[work[0]][0] = ("c", None)
         inwork = {work[0]}
         pack_sets = {}      
         pending = set()     
         depth_at = {}       
         hubs = set()        
+        stack_debug = os.environ.get("DEVIRT_STACK_DEBUG")
+        if stack_debug:
+            self._stack_debug_walk_id = getattr(self, "_stack_debug_walk_id", 0) + 1
         steps = 0
         nerr = 0
         unique_seen = 0
         plateau = 0
+        backward_debug = bool(os.environ.get("DEVIRT_L_BACKWARD_DEBUG"))
+        bridge_mode = os.environ.get("DEVIRT_ENTRY_FACTS_BRIDGE", "")
+        entry_bridge = bool(bridge_mode)
+        retry_bridge = bridge_mode == "retry" or (bridge_mode == "staged"
+                                                   and not getattr(st, "bridge_discovered", False))
+        backward_reverse = {}
+        backward_failures = []
+
+        def get_node(state):
+            nonlocal nerr
+            key = state.key(link)
+            if os.environ.get("DEVIRT_REGREAD_DEBUG"):
+                lf.regread_debug_state = repr(key)
+                lf.regread_debug_facts = dict(facts.get(key, {}))
+            entry_facts = {r: f if f[0] == "c" else (f[0],)
+                           for r, f in facts.get(key, {}).items()
+                           if entry_bridge and f[0] in ("c", "t", "f")}
+            signature = tuple(sorted((r, f[0], type(f[1]).__name__ if len(f) > 1 else None,
+                                      repr(f[1]) if len(f) > 1 else None)
+                                     for r, f in entry_facts.items()))
+            if key not in nodes or (node_entry_facts.get(key) is not None
+                                    and node_entry_facts[key] != signature):
+                if os.environ.get("DEVIRT_INDEX_DEBUG"):
+                    lf.last_index_failure = None
+                if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                    lf.last_frame_failure = None
+                if os.environ.get("DEVIRT_FRONTIER_DEBUG") or os.environ.get("DEVIRT_TMOVE_DEBUG"):
+                    lf.last_frontier_failure = None
+                try:
+                    prefix = "%d_%d_" % (state.pc, len(nodes))
+                    depends_on_entry = entry_bridge and not retry_bridge
+                    try:
+                        candidate = st.step(state, prefix,
+                                            facts=dict(entry_facts) if entry_bridge and not retry_bridge else None)
+                    except Unsupported:
+                        # Retry only concrete-demand failures; successful symbolic
+                        # nodes must retain jump/carry discovery and pack tracking.
+                        # Never replay a failed decoder that changed VM memory.
+                        if not retry_bridge or not entry_facts or getattr(lf, "mutated", False) \
+                                or (getattr(lf, "ov", None) is not None and lf.ov.d):
+                            raise
+                        depends_on_entry = True
+                        candidate = st.step(state, prefix, facts=dict(entry_facts))
+                except Unsupported as exc:
+                    depends_on_entry = entry_bridge
+                    if backward_debug:
+                        failure = getattr(lf, "last_frontier_failure", None) or {}
+                        if failure.get("kind") == "table_move_symbolic_end" \
+                                and isinstance(failure.get("end_reg"), int):
+                            backward_failures.append((key, failure["end_reg"], tuple(lf.out)))
+                        frame_failure = getattr(lf, "last_frame_failure", None) or {}
+                        if frame_failure.get("kind") == "below_stack" \
+                                and isinstance(frame_failure.get("register"), int):
+                            backward_failures.append((key, frame_failure["register"], tuple(lf.out)))
+                    if (os.environ.get("DEVIRT_FRONTIER_DEBUG") or os.environ.get("DEVIRT_TMOVE_DEBUG")) \
+                            and getattr(lf, "last_frontier_failure", None):
+                        rec = dict(lf.last_frontier_failure)
+                        rec.update({"mode": state.mode, "pc": state.pc, "op": repr(lf.last_op),
+                                    "state_locs": repr(state.locs),
+                                    "state_jregs": repr(state.jregs),
+                                    "facts": repr(facts.get(key, {}))[:4000],
+                                    "proto": lf.frame_debug_proto_id(),
+                                    "proto_tid": getattr(lf.proto, "tid", None),
+                                    "vm_tag": getattr(lf.vm, "tag", None),
+                                    "walk_only": lf.walk_only})
+                        print("[FRONTIERFAIL] " + json.dumps(rec, default=repr, sort_keys=True), file=sys.stderr)
+                        lf.last_frontier_failure = None
+                    if os.environ.get("DEVIRT_FRAME_DEBUG") and getattr(lf, "last_frame_failure", None):
+                        rec = dict(lf.last_frame_failure)
+                        rec.update({"mode": state.mode, "pc": state.pc, "op": repr(lf.last_op),
+                                    "state_locs": repr(state.locs),
+                                    "state_jregs": repr(state.jregs),
+                                    "state_packs": repr(state.packs)[:4000],
+                                    "facts": repr(facts.get(key, {}))[:4000]})
+                        print("[FRAMEFAIL] " + json.dumps(rec, default=repr, sort_keys=True), file=sys.stderr)
+                        lf.last_frame_failure = None
+                    if os.environ.get("DEVIRT_INDEX_DEBUG") and getattr(lf, "last_index_failure", None):
+                        rec = dict(lf.last_index_failure)
+                        rec.update({"mode": state.mode, "pc": state.pc, "op": repr(lf.last_op)[:500],
+                                    "state_key": repr(key)[:2000],
+                                    "facts": repr(facts.get(key, {}))[:4000],
+                                    "exception": str(exc)[:2000]})
+                        print("[INDEXFAIL] " + json.dumps(rec, default=repr, sort_keys=True), file=sys.stderr)
+                    if os.environ.get("DEVIRT_TB"):
+                        import traceback
+                        print("-- at %s:%s op %s" % (state.mode, state.pc, lf.last_op), file=sys.stderr)
+                        for arr in [v for v in lf.proto.h.values() if isinstance(v, LTable)]:
+                            for pc in range(state.pc - 2, state.pc + 2):
+                                base = arr.get(pc)
+                                print("   arr#%s[%d] = %s -> %s" % (
+                                    arr.tid, pc, base, st.gov.d.get((id(arr), pc), base)), file=sys.stderr)
+                        traceback.print_exc()
+                    candidate = Node([], outcome=None)
+                    candidate.error = str(exc)
+                    nerr += 1
+                if getattr(st, "new_carry", False):
+                    return None
+                nodes[key] = candidate
+                node_entry_facts[key] = signature if depends_on_entry else None
+                if key in order_positions:
+                    order[order_positions[key]] = (key, candidate)
+            return nodes[key]
+
+        def finish(restart, reason):
+            if backward_debug and backward_failures:
+                from obfuscators.luraph_v15.backward_debug import census
+                reports = census(sys.modules[__name__], nodes, backward_reverse,
+                                 backward_failures, s0.key(link), facts,
+                                 lf.captured_regs, complete=not restart and reason == "complete")
+                for report in reports:
+                    report.update({"proto": lf.frame_debug_proto_id(),
+                                   "walk_reason": reason, "walk_only": lf.walk_only})
+                    print("[LPROVENANCE] " + json.dumps(report, default=repr, sort_keys=True),
+                          file=sys.stderr)
+            metrics = {"order_nodes": len(order), "stepped_nodes": len(nodes),
+                       "threaded_edges": len(self.transport_edges),
+                       "skipped_transport_nodes": sum(len(p) for p in self.transport_edges.values()),
+                       "restart": restart, "reason": reason,
+                       "carry_disabled": bool(getattr(st, "no_carry", False))}
+            self.walk_metrics = metrics
+            if not hasattr(self, "walk_history"):
+                self.walk_history = []
+            self.walk_history.append(metrics)
+            if stack_debug:
+                print("TRANSPORT_METRICS " + json.dumps(metrics), file=sys.stderr)
+            return s0, order, restart
+
+        ordered = set()
         while work and len(order) < limit:
             k = work.pop()
             inwork.discard(k)
             s = states[k]
-            node = nodes.get(k)
+            node = get_node(s)
             if node is None:
-                try:
-                    node = st.step(s, "%d_%d_" % (s.pc, len(order)))
-                except Unsupported as e:
-                    if os.environ.get("DEVIRT_TB"):
-                        import traceback
-                        print("-- at %s:%s op %s" % (s.mode, s.pc, lf.last_op), file=sys.stderr)
-                        for arr in [v_ for v_ in lf.proto.h.values() if isinstance(v_, LTable)]:
-                            for pc_ in range(s.pc - 2, s.pc + 2):
-                                base = arr.get(pc_)
-                                print("   arr#%s[%d] = %s -> %s" % (arr.tid, pc_, base, st.gov.d.get((id(arr), pc_), base)), file=sys.stderr)
-                        traceback.print_exc()
-                    node = Node([], outcome=None)
-                    node.error = str(e)
-                    nerr += 1
-                if getattr(st, "new_carry", False):
-
-                    st.new_carry = False
-                    return s0, order, True
-                nodes[k] = node
+                st.new_carry = False
+                return finish(True, "new carried local")
+            if k not in ordered:
+                ordered.add(k)
+                order_positions[k] = len(order)
                 order.append((k, node))
                 if len(order) % 5000 == 0:
                     seen_now = len(set((kk[0], kk[1]) for kk, _ in order))
@@ -3117,16 +4097,61 @@ class Program:
                 break
             if lf.stack_base is not None and len(order) > STACK_WALK_MAX and getattr(st, "carry", None):
 
+                if stack_debug:
+                    print("STACK_DEBUG_LIMIT " + json.dumps({
+                        "walk_id": self._stack_debug_walk_id,
+                        "reason": "STACK_WALK_MAX disables carry",
+                        "nodes": len(order), "source": [s.mode, s.pc],
+                        "opcode": getattr(node, "op", None), "locs": s.locs,
+                        "jregs": repr(s.jregs), "facts": repr(facts[k]),
+                        "jump_regs": sorted(lf.jump_regs), "pending": sorted(pending),
+                        "carry": sorted(st.carry),
+                        "distinct_depths": sorted({v for state in states.values() for _, v in state.locs}),
+                    }, default=repr), file=sys.stderr)
                 st.carry = set()
                 st.no_carry = True
                 lf.stack_base = None
                 lf.jump_regs = set()
-                return s0, order, True
+                return finish(True, "stack walk resource guard")
             succ = []
             restart = propagate(node, dict(facts[k]), succ, lf)
             if restart:
                 node.error = restart
             for ns, nf in succ:
+                skipped = ()
+                if isinstance(ns.pc, int) and isinstance(ns.mode, int):
+                    original = ns
+                    ns, nf, skipped = thread_transport(ns, nf, link, get_node, lf)
+                    if getattr(st, "new_carry", False):
+                        st.new_carry = False
+                        return finish(True, "new carried local during transport")
+                    if skipped:
+                        redirect_transport(node, original, ns)
+                if stack_debug == "%s:%s" % (ns.mode, ns.pc):
+                    seen_debug = depth_at.get((ns.mode, ns.pc), set())
+                    print("STACK_DEBUG " + json.dumps({
+                        "walk_id": self._stack_debug_walk_id,
+                        "source": [s.mode, s.pc], "target": [ns.mode, ns.pc],
+                        "opcode": getattr(node, "op", None),
+                        "source_locs": s.locs, "target_locs": ns.locs,
+                        "source_jregs": repr(s.jregs), "target_jregs": repr(ns.jregs),
+                        "source_packs": [(r, fmt_expr(value)) for r, value in s.packs],
+                        "target_packs": [(r, fmt_expr(value)) for r, value in ns.packs],
+                        "fallthrough": ns.mode == s.mode and ns.pc == s.pc + 1,
+                        "locs_decreased": bool(s.locs and ns.locs and ns.locs < s.locs),
+                        "source_in_hubs": (s.mode, s.pc) in hubs,
+                        "target_in_hubs": (ns.mode, ns.pc) in hubs,
+                        "predecessor_key": repr(k),
+                        "source_predecessor_key": repr(self.pred.get(k)),
+                        "source_facts": repr(facts[k]), "target_facts": repr(nf),
+                        "ir": list(fmt_node(node, "")),
+                        "seen_target_locs": sorted(seen_debug),
+                        "depth_cap": MAX_STACK_DEPTHS,
+                        "depth_cap_would_reject": bool(ns.locs and ns.locs not in seen_debug
+                            and len(seen_debug) >= MAX_STACK_DEPTHS
+                            and (ns.mode, ns.pc) not in hubs),
+                        "threaded_prefix": repr(skipped),
+                    }, default=repr), file=sys.stderr)
                 if not isinstance(ns.pc, int) or not isinstance(ns.mode, int):
                     regs = {r.n for x in (ns.pc, ns.mode) if not isinstance(x, int)
                             for r in expr_regs(x)} - lf.jump_regs
@@ -3137,8 +4162,15 @@ class Program:
                     if regs:
 
                         lf.jump_regs |= regs
-                        return s0, order, True
+                        return finish(True, "symbolic jump register")
                     node.error = "symbolic next pc/mode: %s / %s" % (fmt_any(ns.pc), fmt_any(ns.mode))
+                    if os.environ.get("DEVIRT_ENTRY_FACTS_DEBUG"):
+                        print("[ENTRYFACTFAIL] " + json.dumps({
+                            "state": repr(k), "successor": repr(ns.key(link)),
+                            "entry_facts": repr(facts.get(k)), "jump_regs": sorted(lf.jump_regs),
+                            "ir": fmt_node(node, ""), "step_facts": repr(lf.step_facts),
+                            "jvals": repr(lf.jvals),
+                        }, default=repr), file=sys.stderr)
                     continue
                 if ns.locs:
 
@@ -3159,8 +4191,12 @@ class Program:
                     bad = (set(seen) ^ set(nk[5])) & lf.pack_killed
                     if bad - lf.pack_unstable:
                         lf.pack_unstable |= bad
-                        return s0, order, True
+                        return finish(True, "unstable pack")
                 self.edges.setdefault(k, set()).add(nk)
+                if backward_debug:
+                    backward_reverse.setdefault(nk, set()).add(k)
+                if skipped:
+                    self.transport_edges[(k, nk)] = skipped
                 if nk not in facts:
                     facts[nk] = nf
                     states[nk] = ns
@@ -3177,8 +4213,8 @@ class Program:
         self.facts = facts
         if pending:
             lf.jump_regs |= pending
-            return s0, order, True
-        return s0, order, False
+            return finish(True, "pending jump registers")
+        return finish(False, "complete" if not work else "walk limit")
 
 def show_op(prog, key, mode, pc, force_op=None):
     cap = prog.dump.protos[key]
@@ -3278,10 +4314,16 @@ class FunctionLifter:
         lf = ProtoLifter(vm, self.prog.dump, vmobj, proto, upvals, self.prog.globals)
         lf.reg_prefix = prefix
         st = make_stepper(vm, lf)
-        for _ in range(WALK_RESTARTS):
+        staged_bridge = os.environ.get("DEVIRT_ENTRY_FACTS_BRIDGE") == "staged"
+        for _ in range(WALK_RESTARTS * (2 if staged_bridge else 1)):
             s0, order, restart = self.prog._walk(vm, lf, st, WALK_LIMIT)
             if not restart:
+                if staged_bridge and not getattr(st, "bridge_discovered", False):
+                    st.bridge_discovered = True
+                    continue
                 break
+            if staged_bridge:
+                st.bridge_discovered = False
         self.prog.requests |= lf.requests
         if lf.reg_arrays:
             k0 = s0.key(vm.kstack_link)
@@ -3565,6 +4607,17 @@ def lift_program(source, protos_path, chunk_paths=(), fetch=None):
     if shared:
         at = next((i for i, l in enumerate(out) if l and not l.startswith("--")), len(out))
         out[at:at] = shared
+    if prog.dump.shared_tables:
+        tables = []
+        for ref in sorted(prog.dump.shared_tables.values(), key=lambda r: int(r.name[len("luraph_table"):])):
+            tables.append("-- Captured shared Luraph runtime table; identity preserved.")
+            tables.append("local %s = {" % ref.name)
+            for key, expr in ref.items:
+                tables.append("\t%s = %s," % (key, fmt_expr(expr)))
+            tables.append("}")
+            tables.append("")
+        at = next((i for i, l in enumerate(out) if l and not l.startswith("--")), len(out))
+        out[at:at] = tables
     text = backend.polish("\n".join(out))
     return text, fl.stats, prog.requests, buffer_patches(prog.dump)
 

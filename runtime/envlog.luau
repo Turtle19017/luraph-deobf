@@ -86,6 +86,29 @@ local stmtCount = 0
 -- pf: closure -> proto (filled where Luraph makes closures), pid: proto -> id,
 -- plast: id -> number of its latest entry (tells invocations apart)
 local CHAIN = { pf = nil, pid = nil, plast = nil }
+-- Optional exact-request boundary for a single guarded constant round.
+-- Path traversal inside an allowed request still uses the existing decoder.
+-- Only the externally submitted complete path is checked here.
+if CFG.force_allowlist ~= nil then
+	if R.type(CFG.force_allowlist) ~= "table" then R.error("force_allowlist must be a table") end
+	CHAIN.forceAllowedPaths = {}
+	for _, path in R.ipairs(CFG.force_allowlist) do
+		if R.type(path) ~= "string" or path == "" then R.error("invalid force_allowlist path") end
+		CHAIN.forceAllowedPaths[path] = true
+	end
+end
+function CHAIN.allowForceRequest(path)
+	if CHAIN.forceAllowedPaths == nil then return true end
+	local allowed = CHAIN.forceAllowedPaths[path] == true
+	local encoded = R.gsub(path, ".", function(c) return R.fmt("%02x", R.byte(c)) end)
+	R.print("\0FORCEGUARD " .. (allowed and "attempted" or "blocked") .. " " .. encoded)
+	return allowed
+end
+function CHAIN.noteForceResult(path, ok, value)
+	if CHAIN.forceAllowedPaths == nil then return end
+	local encoded = R.gsub(path, ".", function(c) return R.fmt("%02x", R.byte(c)) end)
+	R.print("\0FORCEGUARD " .. (ok and value ~= nil and "decoded" or "missing") .. " " .. encoded)
+end
 function CHAIN.get()
 	local pf, pid, plast = CHAIN.pf, CHAIN.pid, CHAIN.plast
 	local parts = {}
@@ -4000,6 +4023,19 @@ do
 			return out
 		end
 		local function decodeAny(path, derivedCache, forced)
+			if not CHAIN.allowForceRequest(path) then return nil, false end
+			if CHAIN.forceAllowedPaths ~= nil then
+				local ok, value, derived
+				if string.sub(path, 1, 1) == "!" then
+					ok, value = R.pcall(callPath, path, derivedCache, forced)
+					derived = true
+				else
+					ok, value, derived = R.pcall(decodePath, path, derivedCache, forced)
+				end
+				CHAIN.noteForceResult(path, ok, value)
+				if not ok then return nil, false end
+				return value, derived
+			end
 			if string.sub(path, 1, 1) == "!" then
 				return callPath(path, derivedCache, forced), true
 			end

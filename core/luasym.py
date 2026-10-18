@@ -1,5 +1,8 @@
 import math
+import os
 import struct
+import json
+import sys
 
 class Unsupported(Exception):
     pass
@@ -449,6 +452,35 @@ class Scope:
             s = s.parent
         return default
 
+def _debug_ast_index(node, depth=0):
+    """Small structural AST fingerprint for frame-index diagnostics."""
+    if not isinstance(node, dict):
+        return repr(node)
+    if depth >= 5:
+        return {"type": node.get("type"), "cut": True}
+    t = node.get("type")
+    out = {"type": t, "location": node.get("location")}
+    if t == "AstExprConstantNumber":
+        out["value"] = node.get("value")
+    elif t == "AstExprLocal":
+        local = node.get("local") or {}
+        out["name"] = local.get("name")
+        out["decl"] = local.get("location")
+    elif t == "AstExprBinary":
+        out["op"] = node.get("op")
+        out["left"] = _debug_ast_index(node.get("left"), depth + 1)
+        out["right"] = _debug_ast_index(node.get("right"), depth + 1)
+    elif t in ("AstExprGroup", "AstExprTypeAssertion"):
+        out["expr"] = _debug_ast_index(node.get("expr"), depth + 1)
+    elif t == "AstExprIndexExpr":
+        out["expr"] = _debug_ast_index(node.get("expr"), depth + 1)
+        out["index"] = _debug_ast_index(node.get("index"), depth + 1)
+    elif t == "AstExprCall":
+        out["func"] = _debug_ast_index(node.get("func"), depth + 1)
+        out["argc"] = len(node.get("args") or [])
+    return out
+
+
 class Interp:
     """Evaluates AST nodes. Hooks for the VM-specific parts:
       special[decl_key] -> "sink" (reads nil, writes ignored) or
@@ -464,6 +496,11 @@ class Interp:
         self.dlog = []          
         self.seen = {}          
         self.steps = 0
+        self.local_reads = set()
+        self.local_events = []
+        self.tmove_assignments = []
+        self.tmove_pack_counts = []
+        self.tmove_blocks = []
 
     def decide(self, cond):
         if self.dpos < len(self.decisions):
@@ -476,7 +513,14 @@ class Interp:
         return d
 
     def cond_true(self, v):
+        if isinstance(v, Const):
+            return truthy(v.v)
         if is_sym(v):
+            known_truth = getattr(self.L, "step_condition_truth", None)
+            if known_truth is not None:
+                known = known_truth(v)
+                if known is not None:
+                    return known
 
             base, neg = v, False
             while isinstance(base, Un) and base.op == "Not":
@@ -492,8 +536,9 @@ class Interp:
             return True
         return truthy(v)
 
-    def getvar(self, scope, local):
+    def getvar(self, scope, local, location=None):
         key = local["location"]
+        self.local_events.append(("read", key, location))
         sp = self.L.special.get(key)
         if sp is not None:
             return self.L.special_get(sp, self)
@@ -504,6 +549,7 @@ class Interp:
 
     def setvar(self, scope, local, v):
         key = local["location"]
+        self.local_events.append(("write", key, None))
         sp = self.L.special.get(key)
         if sp is not None:
             self.L.special_set(sp, v, self)
@@ -514,8 +560,29 @@ class Interp:
         s.vars[key] = v
 
     def exec_block(self, stmts, scope):
+        if os.environ.get("DEVIRT_TMOVE_DEBUG"):
+            for pos, st in enumerate(stmts):
+                self.tmove_blocks.append((stmts, pos))
+                try:
+                    self.exec_stmt(st, scope)
+                finally:
+                    self.tmove_blocks.pop()
+            return
         for st in stmts:
             self.exec_stmt(st, scope)
+
+    def _note_tmove_assignment(self, target, value, stmt):
+        if not os.environ.get("DEVIRT_TMOVE_DEBUG") or target[0] != "local":
+            return
+        local = target[1]
+        if local.get("name") != "L":
+            return
+        self.tmove_assignments.append({
+            "local": local, "value_type": type(value).__name__, "value": repr(value),
+            "statement_location": stmt.get("location"),
+            "rhs": [_debug_ast_index(n) for n in stmt.get("values", [])],
+            "ir_position_before_store": len(self.L.out),
+        })
 
     def exec_stmt(self, st, scope):
         self.steps += 1
@@ -537,6 +604,7 @@ class Interp:
                 else:
                     x = None
                 scope.vars[loc] = x
+                self.local_events.append(("write", loc, None))
                 sp = self.L.special.get(loc)
                 if sp is not None and sp[0] == "reg":
                     self.L.special_set(sp, x, self)
@@ -544,6 +612,7 @@ class Interp:
                 vals = self.eval_list(st["values"], scope, len(vars_))
                 for v, x in zip(vars_, vals):
                     scope.vars[v["location"]] = x
+                    self.local_events.append(("write", v["location"], None))
                     sp = self.L.special.get(v["location"])
                     if sp is not None and sp[0] == "reg":
                         self.L.special_set(sp, x, self)
@@ -554,10 +623,12 @@ class Interp:
                 if len(vals_ast) == 1 and vals_ast[0]["type"] not in ("AstExprCall", "AstExprVarargs"):
                     tg = self.lvalue(vars_[0], scope)
                     x = self.eval(vals_ast[0], scope)
+                    self._note_tmove_assignment(tg, x, st)
                     self.assign(tg, x, scope)
                 else:
                     tg = self.lvalue(vars_[0], scope)
                     x = self.eval_list(vals_ast, scope, 1)[0]
+                    self._note_tmove_assignment(tg, x, st)
                     self.assign(tg, x, scope)
             else:
                 targets = [self.lvalue(v, scope) for v in vars_]
@@ -565,6 +636,7 @@ class Interp:
                 if hasattr(self.L, "parallel_values"):
                     vals = self.L.parallel_values(targets, vals, self)
                 for tg, x in zip(targets, vals):
+                    self._note_tmove_assignment(tg, x, st)
                     self.assign(tg, x, scope)
         elif t == "AstStatCompoundAssign":
             tg = self.lvalue(st["var"], scope)
@@ -612,7 +684,29 @@ class Interp:
             a = self.eval(st["from"], scope)
             b = self.eval(st["to"], scope)
             c = self.eval(st["step"], scope) if st.get("step") else 1
+            if isinstance(a, Const):
+                a = a.v
+            if isinstance(b, Const):
+                b = b.v
+            if isinstance(c, Const):
+                c = c.v
             if is_sym(a) or is_sym(b) or is_sym(c):
+                if os.environ.get("DEVIRT_FRONTIER_DEBUG"):
+                    rec = {
+                        "kind": "numeric_for",
+                        "from_type": type(a).__name__,
+                        "from": repr(a),
+                        "to_type": type(b).__name__,
+                        "to": repr(b),
+                        "step_type": type(c).__name__,
+                        "step": repr(c),
+                        "from_ast": _debug_ast_index(st["from"]),
+                        "to_ast": _debug_ast_index(st["to"]),
+                        "step_ast": _debug_ast_index(st["step"]) if st.get("step") else None,
+                    }
+                    if hasattr(self.L, "last_op"):
+                        rec["last_op"] = repr(self.L.last_op)
+                    self.L.last_frontier_failure = rec
                 raise Unsupported("numeric for with symbolic bounds")
             i = a
             n = 0
@@ -763,7 +857,19 @@ class Interp:
         if t == "AstExprConstantNil":
             return None
         if t == "AstExprLocal":
-            return self.getvar(scope, node["local"])
+            self.local_reads.add((node["local"]["location"], node.get("location")))
+            if os.environ.get("DEVIRT_CARRY_DEBUG") and node["local"].get("location") == "2,528858 - 2,528859":
+                owner = scope.lookup(node["local"]["location"])
+                values = owner.vars if owner is not None else {}
+                if hasattr(values, "written") and node["local"]["location"] not in values.written:
+                    print("[CARRYREAD] " + json.dumps({
+                        "use_location": node.get("location"),
+                        "decl": node["local"]["location"],
+                        "value": repr(dict.get(values, node["local"]["location"])),
+                        "last_op": repr(getattr(self.L, "last_op", None)),
+                        "proto": self.L.frame_debug_proto_id(),
+                    }, sort_keys=True), file=sys.stderr)
+            return self.getvar(scope, node["local"], node.get("location"))
         if t == "AstExprGlobal":
             return self.L.global_value(node["global"])
         if t == "AstExprGroup":
@@ -772,7 +878,17 @@ class Interp:
             obj = self.eval(node["expr"], scope)
             if obj is None:
                 raise Unsupported("index nil @%s" % node["location"])
-            return self.index(obj, self.eval(node["index"], scope))
+            idx_node = node["index"]
+            key = self.eval(idx_node, scope)
+            try:
+                return self.index(obj, key)
+            except Unsupported:
+                rec = getattr(self.L, "last_frame_failure", None)
+                if rec is not None and rec.get("kind") in (
+                        "below_stack", "symbolic_register_index"):
+                    rec["index_ast"] = _debug_ast_index(idx_node)
+                    rec["index_ast_location"] = idx_node.get("location")
+                raise
         if t == "AstExprIndexName":
             obj = self.eval(node["expr"], scope)
             if obj is None:
@@ -842,6 +958,10 @@ class Interp:
         return tb
 
     def binop(self, op, a, b):
+        if isinstance(a, Const):
+            a = a.v
+        if isinstance(b, Const):
+            b = b.v
         if is_sym(a) or is_sym(b) or isinstance(a, (SymList, RegFile)) or isinstance(b, (SymList, RegFile)):
             return self.L.sym_binop(op, a, b)
         if op in ("Add", "Sub", "Mul", "Div", "FloorDiv", "Mod", "Pow"):
@@ -887,7 +1007,11 @@ class Interp:
         raise Unsupported("unop " + op)
 
     def index(self, obj, key):
-        return self.L.index(obj, key, self)
+        result = self.L.index(obj, key, self)
+        if os.environ.get("DEVIRT_TMOVE_DEBUG") and isinstance(obj, SymList) \
+                and (key == obj.nkey or key == b"n"):
+            self.tmove_pack_counts.append((obj, key, result))
+        return result
 
     def newindex(self, obj, key, v):
         self.L.newindex(obj, key, v, self)
@@ -902,7 +1026,33 @@ class Interp:
         else:
             fn = self.eval(fnode, scope)
             args = self.eval_multi_list(node["args"], scope)
-        return self.call(fn, args, stat=stat)
+        try:
+            return self.call(fn, args, stat=stat)
+        except Unsupported:
+            rec = getattr(self.L, "last_frontier_failure", None)
+            if rec is not None and rec.get("kind") in ("table_move", "table_move_symbolic_end"):
+                ast_args = node.get("args") or []
+                rec["from_ast"] = _debug_ast_index(ast_args[1]) if len(ast_args) > 1 else None
+                rec["end_ast"] = _debug_ast_index(ast_args[2]) if len(ast_args) > 2 else None
+                rec["to_ast"] = _debug_ast_index(ast_args[3]) if len(ast_args) > 3 else None
+                if os.environ.get("DEVIRT_TMOVE_DEBUG"):
+                    rec["L_assignments_current_instruction"] = self.tmove_assignments
+                    end_node = ast_args[2] if len(ast_args) > 2 else {}
+                    local = end_node.get("local") or {}
+                    rec["end_local_special"] = repr(self.L.special.get(local.get("location")))
+                    src = args.items[0] if args.items else None
+                    rec["same_pack_count_reads"] = [
+                        {"key": repr(key), "result_type": type(value).__name__,
+                         "result": repr(value)}
+                        for pack, key, value in self.tmove_pack_counts if pack is src]
+                    rec["pack_count_expr"] = repr(src.count_expr()) if isinstance(src, SymList) else None
+                    rec["downstream_status"] = "UNPROVEN: Unsupported ends CFG node; no successor"
+                    rec["remaining_handler_statements"] = [
+                        {"type": st.get("type"), "location": st.get("location"),
+                         "targets": [_debug_ast_index(n) for n in st.get("vars", [])],
+                         "values": [_debug_ast_index(n) for n in st.get("values", [])]}
+                        for block, pos in reversed(self.tmove_blocks) for st in block[pos + 1:]]
+            raise
 
     def call(self, fn, args, stat=False):
         if not isinstance(args, Multi):
