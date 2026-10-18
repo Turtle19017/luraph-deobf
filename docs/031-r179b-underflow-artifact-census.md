@@ -1,38 +1,36 @@
-# 031 — R179B accepted-final-node underflow census
+# 031 — R179B graph-state provenance underflow census
 
-## Why v1 failed
+## Schema correction
 
-R179B v1 scanned every underflow-looking artifact and treated raw, resolved,
-retried, speculative and final records as peers. On the accepted 78/64/594
-artifact set this produced 263 apparent sites. The unchanged `--expect-unique
-49` gate correctly rejected that result.
+The accepted checkpoint remains **78 functions / 64 errors / 0 fallbacks / 594 requests**.
+The previous adapter incorrectly required a top-level `state_key` on backend/resolved census
+records. The completed attribution artifacts instead expose canonical graph identities as
+64 `state_id` values in `graph_error_states.json`.
 
-Rendered error text is not node identity either: multiple backend states may
-emit the same `(mode, pc, register)` error string.
+R179B v3 does not synthesize a replacement key. `graph_error_states.json` is the only source
+allowed to introduce canonical identity. A graph state may obtain its error in either of two
+ways: the graph record itself contains `error`, or a 64-record backend/resolved census carries
+an explicit `state_id`/`*_state_id` reference to that graph state. The mapping must be a full
+one-to-one bijection over all 64 graph IDs and must reproduce the accepted family census:
+49 underflow, 5 symbolic PC/mode, 9 Missing-condition, 1 nil/bxor.
 
-## v2 membership rule
+List position and rendered diagnostic tuples such as `(mode, pc, operation, register)` are not
+identity and are never used to bridge files. If explicit provenance is absent, the analyzer
+fails closed with `refusing order/diagnostic-based identity synthesis`.
 
-Only a canonical JSON list of exactly 64 final backend error nodes may create
-census membership. Every record must have a unique non-empty `state_key` and
-`error`. For checkpoint 78 functions / 64 errors / 0 fallbacks / 594 requests,
-the list must also match the accepted family split exactly:
+Raw, retried, resolved and speculative records are enrichment-only. They can add stack base,
+opcode, proto/function/walk or jump-register metadata only when they carry exactly one explicit
+reference to a canonical graph `state_id`. They cannot create another census site.
 
-- 49 underflow;
-- 5 symbolic PC/mode;
-- 9 Missing-condition;
-- 1 nil/bxor.
+## Regression boundary
 
-`summary.json` marker-string arrays are deliberately ineligible as the node
-universe. Multiple identical 64-node copies are allowed; conflicting universes
-fail closed.
+The tests are repository-relative: they load `tools/analyze_r179b_underflow_artifacts.py` from
+`Path(__file__).resolve().parents[1]`; no `/mnt/data/...` import remains.
 
-Raw/resolved/speculative/debug records are enrichment only. They first match an
-accepted node by exact `state_key`; a `(mode, pc, operation, register)` fallback
-is used only when it identifies exactly one accepted underflow node. Auxiliary
-records can never create another site.
-
-The regression suite includes a production-shaped fixture with 64 canonical
-nodes plus 263 raw/speculative underflow records; the census must remain 49.
+Synthetic gates cover a graph-owned 64-state universe, explicit nested `graph_state_id` joins,
+263 unrelated raw underflow records that must not increase the 49-site census, missing explicit
+provenance, duplicate state references, explicit-state enrichment, and the exact 49/5/9/1 family
+split.
 
 ## Usage
 
@@ -44,7 +42,5 @@ py -3 .\tools\analyze_r179b_underflow_artifacts.py `
   --json-out .\_probe\v15_root27_frontier78_underflow_census.json
 ```
 
-If the supplied artifacts contain no canonical 64-node list with `state_key +
-error`, the tool fails and names that requirement. It does not reconstruct node
-identity from rendered strings or weaken the 49 gate. No lift, live request,
-`--all`, target execution or snapshot mutation is performed.
+No lift rerun, `--all`, live request, protected-target execution, snapshot mutation, positional
+join or fabricated identity is performed.
