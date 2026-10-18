@@ -146,6 +146,7 @@ def analyze_register(doc, register):
                 cls = classify(fates)
                 out.append({"node": node.get("key"), "opcode": node.get("opcode"), "path_index": path.get("path_index"),
                     "branch_trace": path.get("branch_trace"), "event_index": i, "register": register,
+                    "origin_id": event.get("origin_id"), "statement_origin": event.get("statement_origin"),
                     "write_role": event.get("role"), "classification": cls, "possible_fates": sorted(fates),
                     "continuation": continuation, "safe_negative_claim": cls in {"MUST_SHADOWED", "MUST_DEAD"},
                     "path_conditioned": True})

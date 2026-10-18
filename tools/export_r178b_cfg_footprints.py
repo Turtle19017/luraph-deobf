@@ -9,6 +9,7 @@ Program.edges define control-flow edges.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter
@@ -112,6 +113,22 @@ def _append_reads(events: list[dict], value: Any, role: str):
                        "reasons": acc["wild_read_reasons"]})
 
 
+def _origin_root(key: Any) -> str:
+    return "node:" + hashlib.sha256(repr(key).encode("utf-8")).hexdigest()
+
+
+def _tag_statement_events(events: list[dict], statement_origin: str) -> list[dict]:
+    for event in events:
+        event["statement_origin"] = statement_origin
+        if event.get("kind") == "write" and isinstance(event.get("register"), int):
+            event["origin_id"] = (
+                f"{statement_origin}/write:R{int(event['register'])}:"
+                f"{event.get('role') or 'write'}"
+            )
+    return events
+
+
+
 def stmt_events(st: Any, captured_regs=()) -> list[dict]:
     events: list[dict] = []
     if isinstance(st, Assign):
@@ -181,32 +198,45 @@ def _outcome(node: Node, link: Any) -> dict:
     return {"kind": "unknown", "type": type(oc).__name__}
 
 
-def flatten_node(node: Node, link: Any, prefix_events=None, branch_trace=None, captured_regs=()) -> list[dict]:
-    """One record per branch leaf, preserving intra-node event order."""
+def flatten_node(node: Node, link: Any, prefix_events=None, branch_trace=None, captured_regs=(),
+                 origin_root=None, tree_path=()) -> list[dict]:
+    """One record per branch leaf; common-prefix statements keep one stable origin."""
     events = list(prefix_events or [])
     trace = list(branch_trace or [])
-    for st in node.stmts:
-        events.extend(stmt_events(st, captured_regs))
+    tree_label = "root" if not tree_path else ".".join(tree_path)
+    for index, st in enumerate(node.stmts):
+        origin = f"{origin_root or 'node:unknown'}/tree:{tree_label}/stmt:{index}"
+        events.extend(_tag_statement_events(stmt_events(st, captured_regs), origin))
 
     if node.cond is not None:
-        _append_reads(events, node.cond, "branch-condition")
+        cond_events = []
+        _append_reads(cond_events, node.cond, "branch-condition")
+        for event in cond_events:
+            event["statement_origin"] = f"{origin_root or 'node:unknown'}/tree:{tree_label}/cond"
+        events.extend(cond_events)
         out = []
         if node.then is not None:
-            out.extend(flatten_node(node.then, link, events, trace + [True], captured_regs))
+            out.extend(flatten_node(node.then, link, events, trace + [True], captured_regs,
+                                    origin_root, tree_path + ("T",)))
         else:
             out.append({"events": events, "branch_trace": trace + [True], "outcome": {"kind": "missing-then"}})
         if node.els is not None:
-            out.extend(flatten_node(node.els, link, events, trace + [False], captured_regs))
+            out.extend(flatten_node(node.els, link, events, trace + [False], captured_regs,
+                                    origin_root, tree_path + ("F",)))
         else:
             out.append({"events": events, "branch_trace": trace + [False], "outcome": {"kind": "missing-else"}})
         return out
 
+    tail_origin = f"{origin_root or 'node:unknown'}/tree:{tree_label}/outcome"
+    tail_events = []
     if isinstance(node.outcome, Ret):
-        _append_reads(events, node.outcome.values, "return-values")
+        _append_reads(tail_events, node.outcome.values, "return-values")
     elif isinstance(node.outcome, Next):
-        _append_reads(events, node.outcome.state.mode, "next-mode")
-        _append_reads(events, node.outcome.state.pc, "next-pc")
-
+        _append_reads(tail_events, node.outcome.state.mode, "next-mode")
+        _append_reads(tail_events, node.outcome.state.pc, "next-pc")
+    for event in tail_events:
+        event["statement_origin"] = tail_origin
+    events.extend(tail_events)
     return [{"events": events, "branch_trace": trace, "outcome": _outcome(node, link)}]
 
 
@@ -238,7 +268,7 @@ def build_export(order, edges, transport_edges, link, metrics=None, *, proto_key
     counts = Counter()
 
     for key, node in order:
-        paths = flatten_node(node, link, captured_regs=captured_regs)
+        paths = flatten_node(node, link, captured_regs=captured_regs, origin_root=_origin_root(key))
         cfg_succ = set(edges.get(key, set()))
         leaf_succ = set()
         for idx, path in enumerate(paths):
@@ -284,6 +314,7 @@ def build_export(order, edges, transport_edges, link, metrics=None, *, proto_key
         "edge_count": sum(len(v) for v in edges.values()),
         "transport_edge_count": len(transport_edges),
         "captured_registers": sorted(int(r) for r in captured_regs),
+        "origin_scheme": "sha256(state-key-repr)/branch-tree/statement-index/register/role",
         "event_counts": dict(sorted(counts.items())),
         "edge_mismatches": edge_mismatches,
         "missing_edge_targets": missing_edge_targets,

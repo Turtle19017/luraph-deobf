@@ -118,6 +118,26 @@ class R178BCFGFootprintTests(unittest.TestCase):
         self.assertEqual(out["transport_edge_count"], 1)
         self.assertEqual(out["transport_edges"][0]["skipped"][0]["pc"], 11)
 
+    def test_common_prefix_write_keeps_same_origin_across_branch_leaves(self):
+        root = Node([Assign(S.Reg(3), S.Const(9))], cond=S.Reg(4),
+                    then=Node([], outcome=Next(FakeState(7, 20))),
+                    els=Node([], outcome=Next(FakeState(7, 30))))
+        origin = r178b._origin_root(FakeState(7, 10).key(None))
+        paths = r178b.flatten_node(root, None, origin_root=origin)
+        ids = [next(e["origin_id"] for e in p["events"]
+                    if e.get("kind") == "write" and e.get("register") == 3)
+               for p in paths]
+        self.assertEqual(len(set(ids)), 1)
+
+    def test_branch_specific_writes_have_distinct_origins(self):
+        root = Node([], cond=S.Reg(4),
+                    then=Node([Assign(S.Reg(5), S.Const(1))], outcome=Next(FakeState(7, 20))),
+                    els=Node([Assign(S.Reg(5), S.Const(2))], outcome=Next(FakeState(7, 30))))
+        origin = r178b._origin_root(FakeState(7, 10).key(None))
+        paths = r178b.flatten_node(root, None, origin_root=origin)
+        ids = [next(e["origin_id"] for e in p["events"] if e.get("kind") == "write") for p in paths]
+        self.assertEqual(len(set(ids)), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

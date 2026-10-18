@@ -47,10 +47,13 @@ class R178CWriteFateTests(unittest.TestCase):
 
     def test_same_path_read_is_must_live(self):
         d = cfg([node(10, [path(0, [
-            {"kind": "write", "register": 1, "role": "assign"},
+            {"kind": "write", "register": 1, "role": "assign", "origin_id": "O1", "statement_origin": "S1"},
             {"kind": "read", "register": 1, "role": "rhs"},
         ], {"kind": "return"})])])
-        self.assertEqual(self.row(d)["classification"], "MUST_LIVE")
+        row = self.row(d)
+        self.assertEqual(row["classification"], "MUST_LIVE")
+        self.assertEqual(row["origin_id"], "O1")
+        self.assertEqual(row["statement_origin"], "S1")
 
     def test_same_path_overwrite_is_must_shadowed(self):
         d = cfg([node(10, [path(0, [

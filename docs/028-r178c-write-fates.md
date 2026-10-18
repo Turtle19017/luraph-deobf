@@ -93,3 +93,11 @@ python tools/analyze_r178c_cfg_write_fates.py \
 
 Omit `--register` to analyze every exact register written in the R178B document.
 The `_probe` outputs remain local/untracked.
+
+
+## Origin propagation
+
+When R178B supplies `origin_id` and `statement_origin`, R178C copies them
+unchanged onto each path-conditioned write-fate row. This allows R178D to group
+the duplicated micro-path instances of one retained node-IR write without
+guessing from PC, register, or traversal order.

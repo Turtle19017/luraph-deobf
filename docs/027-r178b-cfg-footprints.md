@@ -99,3 +99,16 @@ python tools/export_r178b_cfg_footprints.py \
 
 Optional `--chunk` arguments mirror the devirtualizer's offline chunk inputs.
 The generated `_probe` file remains local/untracked.
+
+
+## Stable write origins
+
+R178B tags every exact write with a deterministic `origin_id` derived from the
+full state-key repr hash, the internal branch-tree position, statement index,
+register, and write role. Statements before an internal branch therefore keep
+the same origin in every duplicated micro-path, while writes in different
+branches receive distinct origins. The exporter records the scheme in
+`origin_scheme`.
+
+These IDs identify one retained node-IR write origin; they are not claims that
+different state nodes came from one identical protected-source statement.
