@@ -30,3 +30,29 @@ def analyze(census_path,expect_negative=19):
   if not c:return None
   v,n=c.most_common(1)[0]; return {'value':v,'count':n,'fraction':n/len(sites)}
  return {'schema':SCHEMA,'source_census':str(census_path),'checkpoint':o['checkpoint'],'accepted_negative_sites':len(sites),'summary':{'read':byop.get('read',0),'store':byop.get('store',0),'stack_base_present':sum(x['stack_base'] is not None for x in sites),'stack_base_missing':sum(x['stack_base'] is None for x in sites),'in_jump_regs':sum(x['in_jump_regs'] for x in sites),'equals_neg_stack_base':sum(x['equals_neg_stack_base'] for x in sites),'equals_one_minus_stack_base':sum(x['equals_one_minus_stack_base'] for x in sites)},'by_register':dict(byreg.most_common()),'by_stack_base':dict(bybase.most_common()),'by_last_op':dict(bylast.most_common()),'affine_patterns':{'register_plus_stack_base':{'histogram':dict(plus.most_common()),'dominant':dom(plus)},'register_minus_stack_base':{'histogram':dict(minus.most_common()),'dominant':dom(minus)}},'sites':sorted(sites,key=lambda x:(x['function_id'],x['state_id'])),'interpretation_gate':{'measurement_only':True,'negative_implies_nil':False,'affine_pattern_proves_bug':False,'semantic_change_authorized':False},'no_lift_rerun':True}
+
+
+def main():
+ import argparse
+ ap=argparse.ArgumentParser(description=__doc__)
+ ap.add_argument('census',type=Path)
+ ap.add_argument('--expect-negative',type=int,default=19)
+ ap.add_argument('--json-out',type=Path,required=True)
+ a=ap.parse_args()
+ try:
+  out=analyze(a.census,a.expect_negative)
+  a.json_out.parent.mkdir(parents=True,exist_ok=True)
+  a.json_out.write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+  sm=out['summary']; plus=out['affine_patterns']['register_plus_stack_base']['dominant']; minus=out['affine_patterns']['register_minus_stack_base']['dominant']
+  print(f"R181A: sites={out['accepted_negative_sites']} read={sm['read']} store={sm['store']}")
+  print(f"stack_base: present={sm['stack_base_present']} missing={sm['stack_base_missing']} in_jump_regs={sm['in_jump_regs']}")
+  print(f"equals_neg_stack_base={sm['equals_neg_stack_base']} equals_one_minus_stack_base={sm['equals_one_minus_stack_base']}")
+  print(f"dominant r+base: {plus['value'] if plus else None} ({plus['count'] if plus else 0}/{out['accepted_negative_sites']})")
+  print(f"dominant r-base: {minus['value'] if minus else None} ({minus['count'] if minus else 0}/{out['accepted_negative_sites']})")
+  print("by_register:",json.dumps(out['by_register'],sort_keys=True))
+  return 0
+ except (OSError,ValueError,TypeError,KeyError,json.JSONDecodeError) as e:
+  raise SystemExit(f"FAIL: {e}") from e
+
+if __name__=='__main__':
+ raise SystemExit(main())
