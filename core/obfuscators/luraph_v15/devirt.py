@@ -1185,6 +1185,9 @@ class ProtoLifter:
         self.temp_defs = {}
         self.step_facts = None
         self.frame_entry_facts = {}
+        self.frame_entry_fact_sources = {}
+        self.frame_regfile = None
+        self.frame_regfile_ambiguous = False
         self.frontier_temp_producers = {}
         self.frontier_ir_history = []
         self.temp_prefix = ""
@@ -1395,8 +1398,10 @@ class ProtoLifter:
                 fact = fact_of(v if isinstance(v, Expr) else Const(v))
                 if fact is None:
                     self.frame_entry_facts.pop(0, None)
+                    self.frame_entry_fact_sources.pop(0, None)
                 else:
                     self.frame_entry_facts[0] = fact
+                    self.frame_entry_fact_sources[0] = "direct-prologue-reg0-write"
             return      
         if sp[0] == "upval":
             self.emit(Assign(Upval(sp[1]), self.value_of(v)))
@@ -1840,6 +1845,8 @@ class ProtoLifter:
                         "last_op": repr(self.last_op),
                         "jvals": repr(self.jvals)[:2000],
                         "jump_regs": sorted(self.jump_regs),
+                        "frame_entry_fact_0": repr(self.frame_entry_facts.get(0)),
+                        "frame_entry_fact_source_0": self.frame_entry_fact_sources.get(0),
                     }
                 raise Unsupported("read below the stack VM's frame (register %s)" % k)
             if self.jvals.get(k) is FRAME:
@@ -2026,12 +2033,33 @@ class ProtoLifter:
         if isinstance(key, Const):
             key = key.v
         if isinstance(obj, RegFile):
-            if getattr(self, "in_prologue", False) and key == 0:
-                fact = fact_of(v if isinstance(v, Expr) else Const(v))
-                if fact is None:
-                    self.frame_entry_facts.pop(0, None)
-                else:
-                    self.frame_entry_facts[0] = fact
+            if getattr(self, "in_prologue", False):
+                if key == 0:
+                    fact = fact_of(v if isinstance(v, Expr) else Const(v))
+                    obj._fresh_zero_slot_fact = fact
+                    if getattr(self, "frame_regfile", None) is obj:
+                        if fact is None:
+                            if self.frame_entry_fact_sources.get(0) == "fresh-regfile-self-alias":
+                                self.frame_entry_facts.pop(0, None)
+                                self.frame_entry_fact_sources.pop(0, None)
+                        else:
+                            self.frame_entry_facts[0] = fact
+                            self.frame_entry_fact_sources[0] = "fresh-regfile-self-alias"
+                if isinstance(v, RegFile) and v is obj:
+                    current = getattr(self, "frame_regfile", None)
+                    if current is None:
+                        self.frame_regfile = obj
+                    elif current is not obj:
+                        self.frame_regfile_ambiguous = True
+                    if not self.frame_regfile_ambiguous and self.frame_regfile is obj:
+                        fact = getattr(obj, "_fresh_zero_slot_fact", None)
+                        if fact is None:
+                            if self.frame_entry_fact_sources.get(0) == "fresh-regfile-self-alias":
+                                self.frame_entry_facts.pop(0, None)
+                                self.frame_entry_fact_sources.pop(0, None)
+                        elif self.frame_entry_fact_sources.get(0) != "direct-prologue-reg0-write":
+                            self.frame_entry_facts[0] = fact
+                            self.frame_entry_fact_sources[0] = "fresh-regfile-self-alias"
             if is_sym(key):
                 arr = self.reg_array(key)
                 if arr is None:
@@ -2066,6 +2094,8 @@ class ProtoLifter:
                         "last_op": repr(self.last_op), "value": fmt_any(v),
                         "jvals": repr(self.jvals), "jump_regs": sorted(self.jump_regs),
                         "step_facts": repr(self.step_facts),
+                        "frame_entry_fact_0": repr(self.frame_entry_facts.get(0)),
+                        "frame_entry_fact_source_0": self.frame_entry_fact_sources.get(0),
                     }
                 raise Unsupported("store below the stack VM's frame (register %s)" % key)
             self.emit(Assign(Reg(S.norm_key(key)), self.value_of(v)))
@@ -2232,9 +2262,12 @@ class ProtoLifter:
             a = Multi(values, a.tail)
         if name in ("table.create",):
             if self.in_prologue:
-                # Luau table.create fills only positive array indices.
-                self.frame_entry_facts[0] = ("c", None)
-                return RegFile()
+                # table.create itself is not proof that this table is the VM
+                # register frame. Carry the fresh slot-zero fact on the object;
+                # newindex() promotes it only after an explicit frame self-alias.
+                frame = RegFile()
+                frame._fresh_zero_slot_fact = ("c", None)
+                return frame
             return LTable()
         if name == "getfenv":
             return EnvTable()
