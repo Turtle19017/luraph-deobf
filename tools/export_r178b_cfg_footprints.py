@@ -170,7 +170,8 @@ def stmt_events(st: Any, captured_regs=()) -> list[dict]:
 def _outcome(node: Node, link: Any) -> dict:
     oc = node.outcome
     if isinstance(oc, Next):
-        return {"kind": "next", "successor": key_summary(oc.state.key(link))}
+        state = oc.state
+        return {"kind": "next", "successor": key_summary(state.key(link))}
     if isinstance(oc, Ret):
         return {"kind": "return"}
     if isinstance(oc, Crash):
@@ -217,9 +218,9 @@ def _event_summary(events: list[dict]) -> dict:
         "writes": writes,
         "may_read_all_registers": any(e["kind"] == "may-read-all" or
                                         (e["kind"] == "call-barrier" and e.get("may_read_all_registers"))
-                                   for e in events),
+                                        for e in events),
         "may_write_all_registers": any(e["kind"] == "call-barrier" and e.get("may_write_all_registers")
-                                     for e in events),
+                                         for e in events),
         "may_write_registers": sorted({
             int(r) for e in events if e["kind"] == "call-barrier"
             for r in (e.get("may_write_registers") or [])
@@ -245,24 +246,29 @@ def build_export(order, edges, transport_edges, link, metrics=None, *, proto_key
             path["summary"] = _event_summary(path["events"])
             counts.update({"micro_paths": 1,
                            "reads": len(path["summary"]["reads"]),
-                            "writes": len(path["summary"]["writes"])})
+                           "writes": len(path["summary"]["writes"])})
             if path["outcome"]["kind"] == "next":
+                # Recover the actual hashable successor directly from the Node leaf.
+                # key_summary is display-only, so compare through repr after redirection.
                 leaf_succ.add(path["outcome"]["successor"]["repr"])
         cfg_repr = {repr(x)[:4000] for x in cfg_succ}
         if leaf_succ != cfg_repr:
             edge_mismatches.append({"source": key_summary(key),
                                     "leaf_successors": sorted(leaf_succ),
                                     "cfg_successors": sorted(cfg_repr)})
-        nodes.append({"key": key_summary(key), "opcode": getattr(node, "op", None),
-                      "error": getattr(node, "error", None),
-                      "cfg_successors": [key_summary(x) for x in sorted(cfg_succ, key=repr)],
-                      "micro_paths": path})
+        nodes.append({
+            "key": key_summary(key),
+            "opcode": getattr(node, "op", None),
+            "error": getattr(node, "error", None),
+            "cfg_successors": [key_summary(x) for x in sorted(cfg_succ, key=repr)],
+            "micro_paths": paths,
+        })
 
     tedges = []
     for (src, dst), skipped in sorted(transport_edges.items(), key=lambda kv: repr(kv[0])):
         tedges.append({"source": key_summary(src), "target": key_summary(dst),
-                        "skipped": [key_summary(x) for x in skipped],
-                        "invariant": "transported nodes have no stmts/cond/error/transport_effects"})
+                       "skipped": [key_summary(x) for x in skipped],
+                       "invariant": "transported nodes have no stmts/cond/error/transport_effects"})
 
     metrics = dict(metrics or {})
     graph_complete = bool(not metrics.get("restart", False) and metrics.get("reason") == "complete")
@@ -322,9 +328,12 @@ def main() -> int:
         args.json_out.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"R178B CFG footprints: nodes={out['node_count']} edges={out['edge_count']} micro_paths={out['event_counts'].get('micro_paths', 0)}")
         print(f"graph_complete={out['graph_complete']} edge_mismatches={len(out['edge_mismatches'])} missing_targets={len(out['missing_edge_targets'])}")
-        print("proof: CFG_FOOTPRINTS_ONLVHB[
-ÈÝXÝY\Ù]^XÝ][Û\ÜYYB]\^Ù\
-ÔÑ\Ü[YQ\ÜÙ^Q\Ü\Q\Ü[\Ü\ÜH\È^ÎZ\ÙHÞ\Ý[Q^]
-RSÙ^ßHHÛH^ÂY×Û[YW×ÈOH×ÛXZ[×ÈZ\ÙHÞ\Ý[Q^]
-XZ[
-JB
+        print("proof: CFG_FOOTPRINTS_ONLY")
+        print("No protected target execution performed")
+        return 0
+    except (OSError, ValueError, KeyError, TypeError, ImportError) as exc:
+        raise SystemExit(f"FAIL: {exc}") from exc
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
