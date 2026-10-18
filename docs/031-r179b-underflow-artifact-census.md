@@ -1,57 +1,50 @@
-# 031 — R179B existing-artifact underflow census
+# 031 — R179B accepted-final-node underflow census
 
-## Purpose
+## Why v1 failed
 
-The accepted frontier checkpoint is still 78 functions / 64 errors / 594
-requests. The completed attribution census shows that 49 of the 64 errors are
-stack/frame underflows, making underflow the dominant remaining family.
+R179B v1 scanned every underflow-looking artifact and treated raw, resolved,
+retried, speculative and final records as peers. On the accepted 78/64/594
+artifact set this produced 263 apparent sites. The unchanged `--expect-unique
+49` gate correctly rejected that result.
 
-R179B does not rerun the lifter or the protected target. It scans artifacts that
-already exist on disk and turns FRAMEFAIL-style evidence into a machine-readable
-underflow taxonomy.
+Rendered error text is not node identity either: multiple backend states may
+emit the same `(mode, pc, register)` error string.
 
-## Input handling
+## v2 membership rule
 
-`tools/analyze_r179b_underflow_artifacts.py` accepts files or directories and
-recursively scans JSON, JSONL, log, Markdown and text artifacts. It understands:
+Only a canonical JSON list of exactly 64 final backend error nodes may create
+census membership. Every record must have a unique non-empty `state_key` and
+`error`. For checkpoint 78 functions / 64 errors / 0 fallbacks / 594 requests,
+the list must also match the accepted family split exactly:
 
-- JSON dictionaries with `kind=below_stack` or `kind=below_stack_store`;
-- nested JSON receipts;
-- log lines with prefixes such as `[FRAMEFAIL] { ... }`;
-- fallback textual errors `read/store below the stack VM's frame (register N)`.
+- 49 underflow;
+- 5 symbolic PC/mode;
+- 9 Missing-condition;
+- 1 nil/bxor.
 
-Duplicate evidence for one attributed site is collapsed, preferring the richer
-record. An optional `--expect-unique 49` gate refuses to emit a successful
-receipt unless the existing artifacts account for all 49 accepted underflow
-sites.
+`summary.json` marker-string arrays are deliberately ineligible as the node
+universe. Multiple identical 64-node copies are allowed; conflicting universes
+fail closed.
 
-## Taxonomy
+Raw/resolved/speculative/debug records are enrichment only. They first match an
+accepted node by exact `state_key`; a `(mode, pc, operation, register)` fallback
+is used only when it identifies exactly one accepted underflow node. Auxiliary
+records can never create another site.
 
-Each site records read vs store, register, stack base, proto/function/walk/state
-coordinates when available, mode/PC/opcode context, jump-register membership,
-and whether the existing fact text contains a slot-zero nil hint.
-
-The first split is intentionally simple and evidence-preserving:
-
-- `ZERO_SLOT`: register 0;
-- `NEGATIVE_SLOT`: register below 0;
-- `UNPARSED`: insufficient register evidence.
-
-No category is treated as safe automatically. In particular, a slot-zero read
-is not converted to nil unless the existing devirtualizer proof rules establish
-that fact; R179B only reports the evidence already present.
+The regression suite includes a production-shaped fixture with 64 canonical
+nodes plus 263 raw/speculative underflow records; the census must remain 49.
 
 ## Usage
 
-```bash
-python tools/analyze_r179b_underflow_artifacts.py \
-  _probe/v15_root27_frontier78_attribution_bigstack \
-  _probe/v15_frontier78_attribution_bigstack.log \
-  --expect-unique 49 \
-  --json-out _probe/v15_root27_frontier78_underflow_census.json
+```powershell
+py -3 .\tools\analyze_r179b_underflow_artifacts.py `
+  .\_probe\v15_root27_frontier78_attribution_bigstack `
+  .\_probe\v15_frontier78_attribution_bigstack.log `
+  --expect-unique 49 `
+  --json-out .\_probe\v15_root27_frontier78_underflow_census.json
 ```
 
-This command performs no lift, no `--all`, no live request, and no protected
-execution. The resulting `by_register`, `by_last_op`, `by_proto`, and `sites`
-fields decide the next underflow fix from measured evidence rather than by
-raising a stack/resource limit.
+If the supplied artifacts contain no canonical 64-node list with `state_key +
+error`, the tool fails and names that requirement. It does not reconstruct node
+identity from rendered strings or weaken the 49 gate. No lift, live request,
+`--all`, target execution or snapshot mutation is performed.
