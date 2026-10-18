@@ -476,8 +476,29 @@ def _debug_ast_index(node, depth=0):
         out["expr"] = _debug_ast_index(node.get("expr"), depth + 1)
         out["index"] = _debug_ast_index(node.get("index"), depth + 1)
     elif t == "AstExprCall":
+        args = node.get("args") or []
         out["func"] = _debug_ast_index(node.get("func"), depth + 1)
-        out["argc"] = len(node.get("args") or [])
+        out["argc"] = len(args)
+        out["args"] = [_debug_ast_index(arg, depth + 1) for arg in args]
+    return out
+
+
+def _debug_runtime_value(value):
+    """Bounded structured representation used only by frame diagnostics."""
+    out = {"type": type(value).__name__}
+    if value is None or isinstance(value, (bool, int, float, str)):
+        out["value"] = value
+    elif isinstance(value, bytes):
+        out["hex"] = value[:256].hex()
+        out["length"] = len(value)
+    elif isinstance(value, LTable):
+        out["repr"] = repr(value)
+        out["tid"] = value.tid
+    elif isinstance(value, Builtin):
+        out["repr"] = repr(value)
+        out["name"] = value.name
+    else:
+        out["repr"] = repr(value)[:2000]
     return out
 
 
@@ -501,6 +522,7 @@ class Interp:
         self.tmove_assignments = []
         self.tmove_pack_counts = []
         self.tmove_blocks = []
+        self.last_frame_binary_eval = None
 
     def decide(self, cond):
         if self.dpos < len(self.decisions):
@@ -888,6 +910,11 @@ class Interp:
                         "below_stack", "symbolic_register_index"):
                     rec["index_ast"] = _debug_ast_index(idx_node)
                     rec["index_ast_location"] = idx_node.get("location")
+                    binary_eval = getattr(self, "last_frame_binary_eval", None)
+                    if isinstance(binary_eval, dict) and binary_eval.get("_node_id") == id(idx_node):
+                        rec["index_eval"] = {
+                            k: v for k, v in binary_eval.items() if k != "_node_id"
+                        }
                 raise
         if t == "AstExprIndexName":
             obj = self.eval(node["expr"], scope)
@@ -912,7 +939,19 @@ class Interp:
             if op == "Or":
                 a = self.eval(node["left"], scope)
                 return a if self.cond_true(a) else self.eval(node["right"], scope)
-            return self.binop(op, self.eval(node["left"], scope), self.eval(node["right"], scope))
+            left_value = self.eval(node["left"], scope)
+            right_value = self.eval(node["right"], scope)
+            result = self.binop(op, left_value, right_value)
+            if os.environ.get("DEVIRT_FRAME_DEBUG"):
+                self.last_frame_binary_eval = {
+                    "_node_id": id(node),
+                    "location": node.get("location"),
+                    "op": op,
+                    "left": _debug_runtime_value(left_value),
+                    "right": _debug_runtime_value(right_value),
+                    "result": _debug_runtime_value(result),
+                }
+            return result
         if t == "AstExprUnary":
             return self.unop(node["op"], self.eval(node["expr"], scope))
         if t == "AstExprIfElse":
