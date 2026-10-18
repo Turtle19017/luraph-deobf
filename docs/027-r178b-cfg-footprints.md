@@ -49,8 +49,12 @@ If `CallStmt.frame_eval` contains exact writes, those writes are emitted while
 the read barrier remains; otherwise the frame call also remains a
 may-write-all-registers barrier.
 
-This is deliberately conservative. A later stage may discharge a barrier with
-handler- or callee-specific evidence, but R178B itself never invents purity.
+This is deliberately conservative. Calls also carry `may_write_registers` for
+`lf.captured_regs`, matching the evaluator's existing rule that any call kills
+facts for captured registers. A `FrameArg` records both its concrete holder
+register read and the may-read-all frame alias. A later stage may discharge a
+barrier with handler- or callee-specific evidence, but R178B itself never
+invents purity.
 
 ## Transport threading
 
