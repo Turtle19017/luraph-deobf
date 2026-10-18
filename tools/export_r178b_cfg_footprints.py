@@ -129,9 +129,6 @@ def stmt_events(st: Any, captured_regs=()) -> list[dict]:
         _append_reads(events, st.fn, "call-function")
         _append_reads(events, st.args, "call-arguments")
         frame_eval = getattr(st, "frame_eval", None)
-        if isinstance(frame_eval, dict):
-            for reg in sorted(int(r) for r in frame_eval):
-                events.append({"kind": "write", "register": reg, "role": "proved-frame-call-write"})
         has_frame = value_access(st.args)["may_read_all_registers"]
         events.append({
             "kind": "call-barrier",
@@ -140,6 +137,12 @@ def stmt_events(st: Any, captured_regs=()) -> list[dict]:
             "frame_eval_exact_writes": sorted(int(r) for r in frame_eval) if isinstance(frame_eval, dict) else None,
             "may_write_registers": sorted(int(r) for r in captured_regs),
         })
+        if isinstance(frame_eval, dict):
+            # frame_eval describes the proved post-call frame. Keep the call
+            # barrier before those writes so the resulting values are not
+            # spuriously treated as exposed to the call that produced them.
+            for reg in sorted(int(r) for r in frame_eval):
+                events.append({"kind": "write", "register": reg, "role": "proved-frame-call-write"})
         return events
 
     if isinstance(st, SetList):
@@ -319,9 +322,9 @@ def main() -> int:
         args.json_out.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"R178B CFG footprints: nodes={out['node_count']} edges={out['edge_count']} micro_paths={out['event_counts'].get('micro_paths', 0)}")
         print(f"graph_complete={out['graph_complete']} edge_mismatches={len(out['edge_mismatches'])} missing_targets={len(out['missing_edge_targets'])}")
-        print("proof: CFG_FOOTPRINTS_ONLVHŠBˆš[
-“›È›İXİY\™Ù]^Xİ][Ûˆ\™›Ü›YYŠBˆ™]\›ˆˆ^Ù\
-ÔÑ\œ›Ü‹˜[YQ\œ›Ü‹Ù^Q\œ›Ü‹\Q\œ›Ü‹[\Ü\œ›ÜŠH\È^Î‚ˆ˜Z\ÙHŞ\İ[Q^]
-ˆ‘RSˆÙ^ßHŠHœ›ÛH^Â‚‚šYˆ×Û˜[YW×ÈOH—×ÛXZ[—×È‚ˆ˜Z\ÙHŞ\İ[Q^]
-XZ[Š
+        print("proof: CFG_FOOTPRINTS_ONLVHÂŠBÂˆÂš[Â
+Â“Â›ÃˆÂ›ÃXÃY\Â™Ã™]^XÃ][Ã›Âˆ\Â™Â›ÃœÂ›YYÂŠBÂˆÂ™]\Â›ÂˆÂˆ^Ã™\
+Ã”Ã‘\ÂœÂ›ÃœÂ‹Â˜[YQ\ÂœÂ›ÃœÂ‹Ã™^Q\ÂœÂ›ÃœÂ‹\Q\ÂœÂ›ÃœÂ‹[\ÃœÂ\ÂœÂ›ÃœÂŠH\Ãˆ^ÃÂ‚ÂˆÂ˜Z\Ã™HÃ\Ã[Q^]
+ÂˆÂ‘ÂRSÂˆÃ™^ÃŸHÂŠHÂœÂ›Ã›H^Ã‚Â‚Â‚ÂšYÂˆÃ—Ã›Â˜[YWÃ—ÃˆOHÂ—Ã—Ã›XZ[Â—Ã—ÃˆÂÂ‚ÂˆÂ˜Z\Ã™HÃ\Ã[Q^]
+XZ[ÂŠ
 JB

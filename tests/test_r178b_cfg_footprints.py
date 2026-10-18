@@ -82,6 +82,10 @@ class R178BCFGFootprintTests(unittest.TestCase):
         self.assertEqual(summary["writes"], [3, 7])
         self.assertTrue(summary["may_read_all_registers"])
         self.assertFalse(summary["may_write_all_registers"])
+        events = r178b.stmt_events(st)
+        barrier = next(i for i, e in enumerate(events) if e["kind"] == "call-barrier")
+        first_write = next(i for i, e in enumerate(events) if e["kind"] == "write")
+        self.assertLess(barrier, first_write)
 
     def test_build_export_uses_cfg_not_order(self):
         k1, k2 = FakeState(7, 10).key(None), FakeState(7, 20).key(None)

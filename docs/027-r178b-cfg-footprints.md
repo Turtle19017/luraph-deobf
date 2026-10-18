@@ -45,9 +45,10 @@ unioned into one fake linear trace.
 Ordinary call arguments contribute exact register reads. A call remains a
 `call-barrier`; R178B does not assume it is pure. If a `FrameArg`/register-file
 argument is present, the micro-path records a may-read-all-registers barrier.
-If `CallStmt.frame_eval` contains exact writes, those writes are emitted while
-the read barrier remains; otherwise the frame call also remains a
-may-write-all-registers barrier.
+If `CallStmt.frame_eval` contains exact writes, the call barrier is emitted
+first and the proved post-call writes follow it; otherwise the frame call also
+remains a may-write-all-registers barrier. This ordering matters because the
+new frame values must not be treated as exposed to the call that produced them.
 
 This is deliberately conservative. Calls also carry `may_write_registers` for
 `lf.captured_regs`, matching the evaluator's existing rule that any call kills
