@@ -5,7 +5,7 @@ import argparse, json, re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-SCHEMA = "luraph-deobf.r181h-rhs-source-presence.v1"
+SCHEMA = "luraph-deobf.r181h-rhs-source-presence.v2"
 SUFFIX = {".json", ".jsonl", ".log", ".txt", ".md"}
 UF = re.compile(r"(?:read|store) below the stack VM's frame \(register (?P<r>-?\d+)\)")
 TABLE_CONTENT_KEYS = {
@@ -42,6 +42,20 @@ def ident(rec):
 
 def numeric(v):
     return None if isinstance(v,bool) else v if isinstance(v,(int,float)) else None
+
+def integer_key(v):
+    """Normalize an integer-valued table key from R181G without accepting float-text or junk."""
+    if isinstance(v, bool) or v is None:
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v) if v.is_integer() else None
+    if isinstance(v, str):
+        text = v.strip()
+        if re.fullmatch(r"[+-]?\d+", text):
+            return int(text, 10)
+    return None
 
 def walk_dicts(v,path="$"):
     if isinstance(v,dict):
@@ -108,9 +122,10 @@ def require_r181g(obj, table_ref, builtin_ref):
             if depmap.get("K")!=table_ref:
                 raise ValueError(f"index instance K is not {table_ref!r}: {depmap.get('K')!r}")
             w=depmap.get("W")
-            if numeric(w) is None:
-                raise ValueError(f"index instance W is not numeric: {w!r}")
-            required_keys[str(int(w) if isinstance(w,float) and w.is_integer() else w)] += 1
+            wk=integer_key(w)
+            if wk is None:
+                raise ValueError(f"index instance W is not integer-like: {w!r}")
+            required_keys[str(wk)] += 1
             table_rows.append(row)
         elif rt=="AstExprCall":
             if depmap.get("v")!=builtin_ref:
@@ -236,6 +251,7 @@ def analyze(r181g_path,evidence_inputs,table_ref="LTable#369",builtin_ref="Built
             "table_tid":tid,
             "table_lookup_instances":len(table_rows),
             "required_table_keys":dict(required_keys.most_common()),
+            "w_key_adapter":"integer primitive or integer-like decimal string",
             "builtin_ref":builtin_ref,
             "call_instances":len(call_rows),
             "call_argc":2,
@@ -287,7 +303,7 @@ def main():
         a.json_out.parent.mkdir(parents=True,exist_ok=True)
         a.json_out.write_text(json.dumps(out,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
         s=out["summary"]; r=out["requirements"]
-        print(f"R181H: table_instances={r['table_lookup_instances']} call_instances={r['call_instances']} call_sites={r['unique_call_sites']}")
+        print(f"R181H-v2: table_instances={r['table_lookup_instances']} call_instances={r['call_instances']} call_sites={r['unique_call_sites']}")
         print("required_table_keys:",json.dumps(r["required_table_keys"],sort_keys=True))
         print(f"table_records={s['table_reference_records']} with_content_candidates={s['table_records_with_candidate_content']} content_paths={s['unique_table_candidate_content_paths']}")
         print(f"call_sites_matched={s['call_sites_with_matched_underflow_records']} with_arg_fields={s['call_sites_with_arg_like_fields']} arg_paths={s['unique_call_arg_like_paths']}")

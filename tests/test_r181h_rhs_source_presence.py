@@ -3,14 +3,18 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 P=ROOT/"tools"/"analyze_r181h_rhs_source_presence.py"
 SPEC=importlib.util.spec_from_file_location("r181h",P); r=importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(r)
 
-def receipt(root):
+def receipt(root, *, stringify_w=False, bad_w=None):
     rows=[]
     for i in range(95):
         rows.append({
             "function_id":f"F{i%7}","state_id":f"S{i%7}","right_type":"AstExprIndexExpr",
             "rhs_local_dependencies":[
                 {"binding":{"identity":{"names":[{"value":"K"}]},"matches":[{"value":"LTable#369"}]}},
-                {"binding":{"identity":{"names":[{"value":"W"}]},"matches":[{"value":[165,356,1008,1490,1524][i%5]}]}},
+                {"binding":{"identity":{"names":[{"value":"W"}]},"matches":[{"value":(
+                    bad_w if bad_w is not None and i == 0 else
+                    str([165,356,1008,1490,1524][i%5]) if stringify_w else
+                    [165,356,1008,1490,1524][i%5]
+                )}]}},
             ],
         })
     for i in range(41):
@@ -74,6 +78,19 @@ class R181HTests(unittest.TestCase):
             out=r.analyze(receipt(q),[e])
             self.assertTrue(out["interpretation_gate"]["zero_candidate_fields_means_not_captured_in_scanned_evidence_only"])
             self.assertFalse(out["interpretation_gate"]["arithmetic_origin_proved"])
+
+    def test_integer_like_string_w_keys_are_accepted(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td); e=q/"e";e.mkdir()
+            out=r.analyze(receipt(q,stringify_w=True),[e])
+            self.assertEqual(set(out["requirements"]["required_table_keys"]),{"165","356","1008","1490","1524"})
+            self.assertEqual(out["requirements"]["w_key_adapter"],"integer primitive or integer-like decimal string")
+
+    def test_float_text_w_key_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td); e=q/"e";e.mkdir()
+            with self.assertRaisesRegex(ValueError,"W is not integer-like"):
+                r.analyze(receipt(q,bad_w="1490.0"),[e])
 
 if __name__=="__main__":
     unittest.main()
