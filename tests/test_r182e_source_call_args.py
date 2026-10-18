@@ -11,18 +11,24 @@ def receipts():
         call=i>=95
         rt="AstExprCall" if call else "AstExprIndexExpr"
         fid=f"F{i%7}";sid=f"S{i%7}"
-        fi.append({
-            "function_id":fid,"state_id":sid,"right_type":rt,
-            "local_snapshot_entries":[{"name":"a","value":11},{"name":"b","value":22}],
-        })
         right={"type":rt,"location":f"L{i}"}
         schema={}
+        deps=[]
         if call:
             right.update({"func":{"type":"AstExprLocal","name":"v","location":f"VF{i}"},"argc":2})
             schema={"argc":2}
+            deps=[{"binding":{
+                "identity":{"names":[{"value":"v"}]},
+                "matches":[{"value":"Builtin(bit32.bxor)"}],
+            }}]
+        fi.append({
+            "function_id":fid,"state_id":sid,"right_type":rt,
+            "right_node":right,
+            "local_snapshot_entries":[{"name":"a","value":11},{"name":"b","value":22}],
+        })
         gi.append({
             "instance_index":i,"function_id":fid,"state_id":sid,"right_type":rt,
-            "right_node":right,"rhs_schema":schema,
+            "rhs_schema":schema,"rhs_local_dependencies":deps,
         })
     cp={"expected":{"functions":78,"errors":64,"fallbacks":0,"requests":594}}
     return (
@@ -84,6 +90,12 @@ class R182ETests(unittest.TestCase):
     def test_receipt_instance_identity_mismatch_fails(self):
         f,g=receipts();g["instances"][95]["function_id"]="OTHER"
         with self.assertRaisesRegex(ValueError,"join mismatch"):
+            r.recover_from_ast(f,g,source_root())
+
+    def test_structured_v_dependency_mismatch_fails(self):
+        f,g=receipts()
+        g["instances"][95]["rhs_local_dependencies"][0]["binding"]["matches"][0]["value"]="Builtin(bit32.band)"
+        with self.assertRaisesRegex(ValueError,"structured v dependency"):
             r.recover_from_ast(f,g,source_root())
 
     def test_sha256_helper_is_exact(self):

@@ -5,7 +5,7 @@ import argparse, hashlib, json, sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-SCHEMA = "luraph-deobf.r182e-source-call-arg-recovery.v1"
+SCHEMA = "luraph-deobf.r182e-source-call-arg-recovery.v2"
 
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -75,22 +75,43 @@ def require_receipts(f,g):
         raise ValueError(f"expected 41 call instances, found {len(rows)}")
     return rows
 
-def debug_call_identity(gr):
-    right=gr.get("right_node")
+def dependency_value(gr, name):
+    hits=[]
+    for dep in gr.get("rhs_local_dependencies",[]):
+        if not isinstance(dep,dict):
+            continue
+        binding=dep.get("binding") or {}
+        names=(binding.get("identity") or {}).get("names",[])
+        dep_names={x.get("value") for x in names if isinstance(x,dict) and isinstance(x.get("value"),str)}
+        if dep_names!={name}:
+            continue
+        matches=binding.get("matches",[])
+        vals=[x.get("value") for x in matches if isinstance(x,dict)]
+        uniq={repr(v):v for v in vals}
+        if len(uniq)==1:
+            hits.append(next(iter(uniq.values())))
+    uniq={repr(v):v for v in hits}
+    return next(iter(uniq.values())) if len(uniq)==1 else None
+
+def debug_call_identity(fr, gr):
+    # R181F preserves the nested debug call fingerprint. R181G preserves
+    # normalized RHS schema and structured dependency bindings.
+    right=fr.get("right_node")
     if not isinstance(right,dict) or right.get("type")!="AstExprCall":
-        raise ValueError("R181G call instance lacks debug AstExprCall right_node")
+        raise ValueError("R181F call instance lacks debug AstExprCall right_node")
     loc=right.get("location")
     if loc is None:
-        raise ValueError("R181G call instance lacks call location")
+        raise ValueError("R181F call instance lacks call location")
     argc=gr.get("rhs_schema",{}).get("argc")
     if argc!=2:
         raise ValueError(f"R181G call argc != 2: {argc!r}")
     func=right.get("func")
-    name=None
-    if isinstance(func,dict):
-        name=func.get("name")
+    name=func.get("name") if isinstance(func,dict) else None
     if name!="v":
-        raise ValueError(f"R181G call func debug name != v: {name!r}")
+        raise ValueError(f"R181F call func debug name != v: {name!r}")
+    dep=dependency_value(gr,"v")
+    if dep!="Builtin(bit32.bxor)":
+        raise ValueError(f"R181G structured v dependency != Builtin(bit32.bxor): {dep!r}")
     return loc,argc,name
 
 def compact(node,depth=0,max_depth=8):
@@ -161,7 +182,7 @@ def recover_from_ast(f,g,root):
     calls=index_calls(root)
     out=[];shape_counts=Counter();loc_counts=Counter()
     for idx,fr,gr in rows:
-        loc,argc,_=debug_call_identity(gr)
+        loc,argc,_=debug_call_identity(fr,gr)
         hits=calls.get(loc,[])
         if len(hits)!=1:
             raise ValueError(f"call location {loc!r} matched {len(hits)} source AstExprCall nodes")
