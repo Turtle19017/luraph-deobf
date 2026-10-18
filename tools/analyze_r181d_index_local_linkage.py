@@ -5,7 +5,7 @@ import argparse, ast, json, re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-SCHEMA = "luraph-deobf.r181d-index-local-linkage.v1"
+SCHEMA = "luraph-deobf.r181d-index-local-linkage.v2"
 SUFFIX = {".json", ".jsonl", ".log", ".txt", ".md"}
 UF = re.compile(r"(?:read|store) below the stack VM's frame \(register (?P<r>-?\d+)\)")
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -99,15 +99,79 @@ def find_named_subtrees(rec, suffix):
             uniq.append((p, v))
     return uniq
 
-def local_minus_one_names(rec):
-    names = set()
+def iter_local_entries(obj, path="$"):
+    """Yield explicit local declarations/values without treating arbitrary metadata as locals."""
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            yield from iter_local_entries(item, f"{path}[{i}]")
+        return
+    if not isinstance(obj, dict):
+        return
+
+    yielded_explicit = False
+
+    decl = obj.get("decl")
+    if isinstance(decl, dict):
+        name = decl.get("name")
+        if isinstance(name, str) and IDENT.match(name) and "value" in decl:
+            yielded_explicit = True
+            yield {
+                "path": f"{path}.decl",
+                "name": name,
+                "value": decl.get("value"),
+                "encoding": "decl-name-value",
+            }
+
+    name = obj.get("name")
+    if isinstance(name, str) and IDENT.match(name) and "value" in obj:
+        yielded_explicit = True
+        yield {
+            "path": path,
+            "name": name,
+            "value": obj.get("value"),
+            "encoding": "name-value",
+        }
+
+    if not yielded_explicit:
+        # Legacy/direct-map schema: {"x": value, "y": value}. Only accept direct
+        # identifier keys whose values are not declaration containers.
+        for key, value in obj.items():
+            if (
+                isinstance(key, str)
+                and IDENT.match(key)
+                and key not in {"decl", "name", "value"}
+                and not isinstance(value, (dict, list))
+            ):
+                yield {
+                    "path": f"{path}.{key}",
+                    "name": key,
+                    "value": value,
+                    "encoding": "direct-map",
+                }
+
+    # Real captures may wrap declaration entries in list/object containers.
+    for key, value in obj.items():
+        if isinstance(value, (dict, list)):
+            if key == "decl" and yielded_explicit:
+                continue
+            yield from iter_local_entries(value, f"{path}.{key}")
+
+def local_minus_one_entries(rec):
+    out = []
+    seen = set()
     for label in ("local_values", "carried_locals"):
-        for _, obj in find_named_subtrees(rec, label):
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    if isinstance(k, str) and IDENT.match(k) and is_minus_one(v):
-                        names.add(k)
-    return names
+        for subtree_path, obj in find_named_subtrees(rec, label):
+            for entry in iter_local_entries(obj, subtree_path):
+                if not is_minus_one(entry["value"]):
+                    continue
+                key = (entry["path"], entry["name"], repr(entry["value"]), entry["encoding"])
+                if key not in seen:
+                    seen.add(key)
+                    out.append(entry)
+    return out
+
+def local_minus_one_names(rec):
+    return {entry["name"] for entry in local_minus_one_entries(rec)}
 
 def structured_local_refs(ast_obj, local_names):
     hits = []
@@ -224,7 +288,8 @@ def analyze(r181b_path, evidence_inputs, expect_cohort=9):
         evidence = []
         site_classes = set()
         for source, line, json_path, rec in site_records:
-            local_names = local_minus_one_names(rec)
+            local_entries = local_minus_one_entries(rec)
+            local_names = {entry["name"] for entry in local_entries}
             asts = find_named_subtrees(rec, "index_ast")
             trees = find_named_subtrees(rec, "key_tree")
             exact_hits = []
@@ -255,6 +320,7 @@ def analyze(r181b_path, evidence_inputs, expect_cohort=9):
                 "line": line,
                 "json_path": json_path,
                 "minus_one_locals": sorted(local_names),
+                "minus_one_local_entries": local_entries,
                 "index_ast_count": len(asts),
                 "index_ast_ops": ops,
                 "key_tree_count": len(trees),
@@ -294,6 +360,11 @@ def analyze(r181b_path, evidence_inputs, expect_cohort=9):
         )},
         "index_ast_ops": dict(ast_shapes.most_common()),
         "sites": sorted(rows, key=lambda x: (x["function_id"], x["state_id"])),
+        "local_schema_adapter": {
+            "supported_encodings": ["decl-name-value", "name-value", "direct-map"],
+            "list_containers_supported": True,
+            "source_fields": ["local_values", "carried_locals"],
+        },
         "proof_gate": {
             "ast_exact_local_link_proves_value_reaches_index_operand": True,
             "ast_exact_local_link_proves_final_arithmetic_origin": False,
@@ -317,7 +388,7 @@ def main():
         a.json_out.parent.mkdir(parents=True, exist_ok=True)
         a.json_out.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         s = out["summary"]
-        print(f"R181D: cohort={out['cohort_sites']} exact={s['AST_EXACT_LOCAL_LINK']} textual={s['TEXTUAL_LOCAL_LINK']} cooccur={s['CO_OCCURRENCE_ONLY']} no_link={s['NO_LINK']}")
+        print(f"R181D-v2: cohort={out['cohort_sites']} exact={s['AST_EXACT_LOCAL_LINK']} textual={s['TEXTUAL_LOCAL_LINK']} cooccur={s['CO_OCCURRENCE_ONLY']} no_link={s['NO_LINK']}")
         print("index_ast_ops:", json.dumps(out["index_ast_ops"], sort_keys=True))
         return 0
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:

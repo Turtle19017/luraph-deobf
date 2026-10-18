@@ -1,12 +1,14 @@
-# 037 — R181D index/local linkage census
+# 037 — R181D-v2 index/local linkage census
 
 R181C established that all nine `register=-1, stack_base=1` sites still have nested frozen evidence. The recurring scalar `-1` appears in register-access keys, key-tree representations, and a local value named `x`; seven sites expose an index AST whose operation is `Sub`.
 
 R181D asks a narrower question: does the `-1` local participate structurally in the index expression, or does it merely coexist in the same frame snapshot?
 
-For each exact `(function_id,state_id)` underflow record, R181D finds local snapshots (`local_values` and `carried_locals`) whose named local equals `-1`, then inspects `index_ast` and `key_tree`.
+For each exact `(function_id,state_id)` underflow record, R181D-v2 adapts the observed local schema before inspecting `index_ast` and `key_tree`. It supports list containers and declaration entries of the real form `{"decl":{"name":...,"value":...}}`, plus explicit `{name,value}` entries and the earlier direct-map fixture form.
 
-Classification is fail-closed:
+R181D-v1's `NO_LINK=9` result is not negative evidence because v1 only decoded direct-map locals and therefore missed the real declaration/list schema. V2 writes a new output schema and must be rerun on the same frozen artifacts before any linkage conclusion is drawn.
+
+Classification remains fail-closed:
 
 - `AST_EXACT_LOCAL_LINK`: a structured AST field such as `local`, `name`, `identifier`, `var`, etc. explicitly names the same `-1` local.
 - `TEXTUAL_LOCAL_LINK`: only AST/key-tree text mentions the local as an identifier token.
@@ -21,7 +23,7 @@ py -3 .\tools\analyze_r181d_index_local_linkage.py `
   .\_probe\v15_root27_frontier78_attribution_bigstack `
   .\_probe\v15_frontier78_attribution_bigstack.log `
   --expect-cohort 9 `
-  --json-out .\_probe\v15_root27_frontier78_index_local_linkage.r181d.json
+  --json-out .\_probe\v15_root27_frontier78_index_local_linkage.r181d.v2.json
 ```
 
 No lift rerun, target execution, flag change, snapshot mutation, or semantic reinterpretation is performed.

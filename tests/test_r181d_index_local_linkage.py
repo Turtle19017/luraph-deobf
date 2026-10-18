@@ -71,6 +71,51 @@ class R181DTests(unittest.TestCase):
             })+"\n", encoding="utf-8")
             out=r.analyze(c,[e])
             self.assertEqual(out["summary"]["TEXTUAL_LOCAL_LINK"],1)
+    def test_decl_list_schema_exact_link(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td); c=census(q); e=q/"e.jsonl"
+            e.write_text(json.dumps({
+                "kind":"below_stack","register":-1,"function_id":"F0","state_id":"S0",
+                "site":{
+                    "local_values":[{"decl":{"name":"x","value":-1}}],
+                    "index_ast":{"op":"Sub","lhs":{"local":"x"},"rhs":{"name":"K"}}
+                }
+            })+"\n", encoding="utf-8")
+            out=r.analyze(c,[e])
+            self.assertEqual(out["summary"]["AST_EXACT_LOCAL_LINK"],1)
+            ev=out["sites"][0]["evidence"][0]
+            self.assertEqual(ev["minus_one_local_entries"][0]["encoding"],"decl-name-value")
+
+    def test_carried_locals_list_decl_schema(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td); c=census(q); e=q/"e.jsonl"
+            e.write_text(json.dumps({
+                "kind":"below_stack","register":-1,"function_id":"F0","state_id":"S0",
+                "frame":{
+                    "carried_locals":[
+                        {"decl":{"name":"x","value":-1}},
+                        {"decl":{"name":"y","value":7}}
+                    ]
+                },
+                "site":{"index_ast":{"op":"Sub","rhs":{"identifier":"x"}}}
+            })+"\n", encoding="utf-8")
+            out=r.analyze(c,[e])
+            self.assertEqual(out["summary"]["AST_EXACT_LOCAL_LINK"],1)
+            self.assertEqual(out["sites"][0]["evidence"][0]["minus_one_locals"],["x"])
+
+    def test_decl_name_value_nonminus_is_not_linked(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td); c=census(q); e=q/"e.jsonl"
+            e.write_text(json.dumps({
+                "kind":"below_stack","register":-1,"function_id":"F0","state_id":"S0",
+                "site":{
+                    "local_values":[{"decl":{"name":"x","value":3}}],
+                    "index_ast":{"op":"Sub","lhs":{"local":"x"}}
+                }
+            })+"\n", encoding="utf-8")
+            out=r.analyze(c,[e])
+            self.assertEqual(out["summary"]["NO_LINK"],9)
+
 
 if __name__ == "__main__":
     unittest.main()
