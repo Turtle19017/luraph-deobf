@@ -216,6 +216,42 @@ class EntryFactsTests(unittest.TestCase):
         self.assertTrue(getattr(node, "error", None))
         self.assertTrue(all(facts is None for _, facts in calls))
 
+    def test_direct_symbolic_successor_uses_exact_edge_fact(self):
+        class Stepper:
+            new_carry = False
+            def initial(self):
+                return d.State(0, 0, None)
+            def step(self, state, prefix, facts=None):
+                if state.pc == 0:
+                    return d.Node([d.Assign(d.Reg(6), d.Const(7))],
+                                  outcome=d.Next(d.State(0, d.Reg(6), None)))
+                self.assertEqual(state.pc, 7)
+                return d.Node([], outcome=d.Ret(d.Multi([])))
+
+        stepper = Stepper()
+        stepper.assertEqual = self.assertEqual
+        lf = types.SimpleNamespace(stack_base=None, walk_only=False, jump_regs={6},
+                                   captured_regs=set(), pack_killed=set(), pack_unstable=set())
+        prog = d.Program.__new__(d.Program)
+        _, order, restart = prog._walk(types.SimpleNamespace(kstack_link=None), lf, stepper, 20)
+        self.assertFalse(restart)
+        self.assertFalse([n.error for _, n in order if getattr(n, "error", None)])
+        self.assertIn(7, [key[1] for key, _ in order])
+        self.assertGreaterEqual(prog.walk_metrics["control_fact_resolutions"], 1)
+
+    def test_control_fact_resolution_rejects_bool_and_nonconstant(self):
+        state = d.State(d.Reg(5), d.Reg(6), None)
+        hit = d.resolve_control_facts(state, {5: ("c", False), 6: ("t",)})
+        self.assertEqual(hit, {})
+        self.assertEqual(state.mode, d.Reg(5))
+        self.assertEqual(state.pc, d.Reg(6))
+
+    def test_control_fact_resolution_accepts_exact_integer_mode_and_pc(self):
+        state = d.State(d.Reg(5), d.Reg(6), None)
+        hit = d.resolve_control_facts(state, {5: ("c", 3), 6: ("c", 11945)})
+        self.assertEqual(hit, {"mode": 3, "pc": 11945})
+        self.assertEqual((state.mode, state.pc), (3, 11945))
+
 
 if __name__ == "__main__":
     unittest.main()

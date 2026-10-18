@@ -2810,6 +2810,28 @@ def truth_of(f):
         return S.truthy(f[1])
     return f[0] == "t"
 
+def resolve_control_facts(state, facts):
+    """Concretize successor mode/pc only from an exact integer edge fact.
+
+    This is deliberately narrower than general expression folding: it closes
+    the gap where a direct Reg used as the next PC/mode is already tracked as
+    a jump register, yet SCCP proved its value on this outgoing edge.
+    """
+    resolved = {}
+    for name in ("mode", "pc"):
+        value = getattr(state, name)
+        if isinstance(value, int):
+            continue
+        f = eval_fact(value, facts)
+        if f is None or f[0] != "c":
+            continue
+        concrete = f[1]
+        if isinstance(concrete, int) and not isinstance(concrete, bool):
+            setattr(state, name, concrete)
+            resolved[name] = concrete
+    return resolved
+
+
 def edge_facts(cond, taken, facts):
     """Facts implied by taking one side of a branch on `cond`."""
     f = dict(facts)
@@ -3947,6 +3969,7 @@ class Program:
                                                    and not getattr(st, "bridge_discovered", False))
         backward_reverse = {}
         backward_failures = []
+        control_fact_resolutions = 0
 
         def get_node(state):
             nonlocal nerr
@@ -4057,6 +4080,7 @@ class Program:
             metrics = {"order_nodes": len(order), "stepped_nodes": len(nodes),
                        "threaded_edges": len(self.transport_edges),
                        "skipped_transport_nodes": sum(len(p) for p in self.transport_edges.values()),
+                       "control_fact_resolutions": control_fact_resolutions,
                        "restart": restart, "reason": reason,
                        "carry_disabled": bool(getattr(st, "no_carry", False))}
             self.walk_metrics = metrics
@@ -4118,6 +4142,8 @@ class Program:
             if restart:
                 node.error = restart
             for ns, nf in succ:
+                resolved_control = resolve_control_facts(ns, nf)
+                control_fact_resolutions += len(resolved_control)
                 skipped = ()
                 if isinstance(ns.pc, int) and isinstance(ns.mode, int):
                     original = ns
