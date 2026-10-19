@@ -54,7 +54,7 @@ except d.Unsupported:
 else:
     print("ALLOWED")
 '''
-        p=self.child(code,experiment=False)
+        p=self.child(code,experiment=False,frame=False)
         self.assertEqual(p.returncode,0,p.stderr)
         self.assertEqual(p.stdout.strip(),"REJECT")
 
@@ -95,7 +95,7 @@ for key in (-2,0):
     except d.Unsupported: ok.append(key)
 print(ok)
 '''
-        p=self.child(code,experiment=True)
+        p=self.child(code,experiment=True,frame=False)
         self.assertEqual(p.returncode,0,p.stderr)
         self.assertEqual(p.stdout.strip(),"[-2, 0]")
 

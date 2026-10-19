@@ -78,7 +78,8 @@ def accepted_summary(path):
     try:o=load(path)
     except Exception:return False
     if not isinstance(o,dict):return False
-    st=o.get("stats") or {}
+    st=o.get("stats")
+    if not isinstance(st,dict):return False
     return (st.get("functions"),st.get("errors"),st.get("fallbacks"),o.get("requests"))==(78,64,0,594) \
         and o.get("source_sha256")==SOURCE_SHA and o.get("output_sha256")==OUTPUT_SHA
 

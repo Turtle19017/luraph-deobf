@@ -34,6 +34,21 @@ class R183RunnerIntegrationTests(unittest.TestCase):
             self.assertEqual(picked,goodp.resolve())
             self.assertEqual(hits,[goodp.resolve()])
 
+    def test_baseline_discovery_skips_non_dict_stats(self):
+        with tempfile.TemporaryDirectory() as td:
+            probe=pathlib.Path(td)
+            for i,stats in enumerate(([78,64,0],"78/64/0",None)):
+                obj={"stats":stats,"requests":594,
+                     "source_sha256":r.SOURCE_SHA,"output_sha256":r.OUTPUT_SHA}
+                (probe/f"summary.malformed.{i}.json").write_text(json.dumps(obj),encoding="utf-8")
+                self.assertFalse(r.accepted_summary(probe/f"summary.malformed.{i}.json"))
+            good={"stats":{"functions":78,"errors":64,"fallbacks":0},"requests":594,
+                  "source_sha256":r.SOURCE_SHA,"output_sha256":r.OUTPUT_SHA}
+            goodp=probe/"summary.good.json";goodp.write_text(json.dumps(good),encoding="utf-8")
+            picked,hits=r.discover_baseline(None,probe)
+            self.assertEqual(picked,goodp.resolve())
+            self.assertEqual(hits,[goodp.resolve()])
+
     def test_selected_protos_falls_back_from_stale_receipt_path_to_probe_hash_match(self):
         with tempfile.TemporaryDirectory() as td:
             q=pathlib.Path(td);probe=q/"_probe";probe.mkdir()
