@@ -88,6 +88,14 @@ class R182JTests(unittest.TestCase):
             self.assertEqual(rows["B"]["call_site_count"],1)
             self.assertEqual(rows["c"]["call_site_count"],1)
 
+    def test_alias_resolution_surfaces_terminal_function_identity(self):
+        rt=source_root(alias=True)
+        idx=r.SourceIndex(rt)
+        resolved=idx.static_local_origin("Dalias")
+        self.assertEqual(resolved["status"],"FUNCTION")
+        self.assertEqual(resolved["function_location"],"TARGET")
+        self.assertEqual(resolved["next"]["function_location"],"TARGET")
+
     def test_reassigned_callee_binding_is_not_trusted(self):
         with tempfile.TemporaryDirectory() as td:
             q=pathlib.Path(td);out=self.run_with_root(q,source_root(mutate_binding=True))

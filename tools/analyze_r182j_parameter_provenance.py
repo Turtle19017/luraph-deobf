@@ -5,7 +5,7 @@ import argparse, hashlib, json, sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-SCHEMA="luraph-deobf.r182j-parameter-provenance-census.v1"
+SCHEMA="luraph-deobf.r182j-parameter-provenance-census.v2"
 
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -194,7 +194,16 @@ class SourceIndex:
         if isinstance(e,dict) and e.get("type")=="AstExprLocal":
             nxt=(e.get("local") or {}).get("location")
             sub=self.static_local_origin(nxt,seen)
-            return {"status":sub.get("status"),"decl":decl,"origin":"LOCAL_ALIAS","alias_decl":nxt,"next":sub}
+            # Preserve terminal callee identity across an immutable alias chain.
+            # Keep the nested record as provenance, but surface function_location
+            # and node when (and only when) the recursively resolved origin is
+            # already a FUNCTION.
+            out={"status":sub.get("status"),"decl":decl,"origin":"LOCAL_ALIAS",
+                 "alias_decl":nxt,"next":sub}
+            if sub.get("status")=="FUNCTION":
+                out["function_location"]=sub.get("function_location")
+                out["node"]=sub.get("node")
+            return out
         if isinstance(e,dict) and e.get("type")=="AstExprFunction":
             return {"status":"FUNCTION","decl":decl,"function_location":e.get("location"),"node":e,
                     "origin":chosen.get("kind")}
