@@ -1825,9 +1825,15 @@ class ProtoLifter:
                 return Index(*arr)
             k = S.norm_key(key)
             debug_before = sorted(self.jread) if getattr(self, "regread_debug_active", False) else None
-            if isinstance(k, (int, float)) and k < 1 and self.stack_base is not None:
+            neg1_experiment = bool(os.environ.get("DEVIRT_NEG1_SLOT_EXPERIMENT")) \
+                and k == -1 and self.stack_base == 1
+            if isinstance(k, (int, float)) and k < 1 and self.stack_base is not None \
+                    and not neg1_experiment:
                 # A proved fresh-frame nil slot needs no raw register access.
-                # Unknown slot-zero reads and all underflow stores still fail.
+                # Unknown slot-zero reads and ordinary underflow accesses still fail.
+                # DEVIRT_NEG1_SLOT_EXPERIMENT is an off-by-default diagnostic
+                # lane for the exact observed cohort (register=-1, stack_base=1);
+                # when enabled the access continues through ordinary Reg handling.
                 if os.environ.get("DEVIRT_ZERO_SLOT_FACT") and k == 0 \
                         and (self.step_facts or {}).get(0) == ("c", None):
                     return None
@@ -2086,7 +2092,10 @@ class ProtoLifter:
                     self.step_facts.pop(S.norm_key(key), None)
                 self.jvals[S.norm_key(key)] = FRAME
                 return
-            if isinstance(key, (int, float)) and key < 1 and self.stack_base is not None:
+            neg1_experiment = bool(os.environ.get("DEVIRT_NEG1_SLOT_EXPERIMENT")) \
+                and key == -1 and self.stack_base == 1
+            if isinstance(key, (int, float)) and key < 1 and self.stack_base is not None \
+                    and not neg1_experiment:
                 if os.environ.get("DEVIRT_FRAME_DEBUG"):
                     self.last_frame_failure = {
                         "kind": "below_stack_store", "proto": self.frame_debug_proto_id(),
