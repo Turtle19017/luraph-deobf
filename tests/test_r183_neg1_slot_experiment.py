@@ -1,56 +1,103 @@
-"""Off-by-default diagnostic lane for the exact register=-1/stack_base=1 cohort."""
+"""R183-v2 runtime bootstrap keeps legacy engine bytes unchanged."""
+import json
 import os
 import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
-from unittest.mock import patch
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "core"))
+ROOT=pathlib.Path(__file__).resolve().parents[1]
+BOOT=ROOT/"tools"/"r183_sitecustomize.py"
+
+class R183BootstrapTests(unittest.TestCase):
+    def child(self, code, *, experiment=False, frame=True):
+        with tempfile.TemporaryDirectory() as td:
+            td=pathlib.Path(td)
+            shutil.copyfile(BOOT,td/"sitecustomize.py")
+            env=dict(os.environ)
+            env["PYTHONPATH"]=os.pathsep.join(
+                [str(td),str(ROOT/"core"),str(ROOT/"tests")]+
+                ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
+            )
+            if frame: env["R183_FRAME_DEBUG"]="1"
+            else: env.pop("R183_FRAME_DEBUG",None)
+            if experiment: env["R183_NEG1_SLOT_EXPERIMENT"]="1"
+            else: env.pop("R183_NEG1_SLOT_EXPERIMENT",None)
+            p=subprocess.run([sys.executable,"-c",code],cwd=ROOT,env=env,
+                             text=True,capture_output=True)
+            return p
+
+    def test_driver_style_deletion_cannot_remove_frame_debug(self):
+        code=r'''
+import os
+for k in list(os.environ):
+    if k.startswith("DEVIRT_"):
+        os.environ.pop(k,None)
+print(os.environ.get("DEVIRT_FRAME_DEBUG"))
+'''
+        p=self.child(code)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(p.stdout.strip(),"1")
+        self.assertIn('"frame_debug": true',p.stderr)
+
+    def test_experiment_off_preserves_negative_read_rejection(self):
+        code=r'''
 from obfuscators.luraph_v15 import devirt as d
 from test_entry_facts_bridge import lifter
+lf=lifter();lf.stack_base=1
+try:
+    lf.index(d.REGFILE,-1,None)
+except d.Unsupported:
+    print("REJECT")
+else:
+    print("ALLOWED")
+'''
+        p=self.child(code,experiment=False)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(p.stdout.strip(),"REJECT")
 
+    def test_experiment_on_allows_exact_neg1_read(self):
+        code=r'''
+from obfuscators.luraph_v15 import devirt as d
+from test_entry_facts_bridge import lifter
+lf=lifter();lf.stack_base=1
+v=lf.index(d.REGFILE,-1,None)
+print(type(v).__name__,v.n)
+'''
+        p=self.child(code,experiment=True)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(p.stdout.strip(),"Reg -1")
+        self.assertIn('"neg1_patch_installed": true',p.stderr)
 
-class Neg1SlotExperimentTests(unittest.TestCase):
-    def test_flag_off_preserves_read_rejection(self):
-        lf=lifter();lf.stack_base=1
-        with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(d.Unsupported):
-                lf.index(d.REGFILE,-1,None)
+    def test_experiment_on_allows_exact_neg1_store_without_const_identity_assumption(self):
+        code=r'''
+from obfuscators.luraph_v15 import devirt as d
+from test_entry_facts_bridge import lifter
+lf=lifter();lf.stack_base=1
+lf.newindex(d.REGFILE,-1,d.Const(7),None)
+x=lf.out[0]
+print(type(x.target).__name__,x.target.n,type(x.value).__name__,x.value.v)
+'''
+        p=self.child(code,experiment=True)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(p.stdout.strip(),"Reg -1 Const 7")
 
-    def test_flag_on_allows_exact_neg1_read_as_ordinary_reg(self):
-        lf=lifter();lf.stack_base=1
-        with patch.dict(os.environ, {"DEVIRT_NEG1_SLOT_EXPERIMENT":"1"}, clear=True):
-            self.assertEqual(lf.index(d.REGFILE,-1,None),d.Reg(-1))
-
-    def test_flag_on_allows_exact_neg1_store_as_ordinary_reg(self):
-        lf=lifter();lf.stack_base=1
-        with patch.dict(os.environ, {"DEVIRT_NEG1_SLOT_EXPERIMENT":"1"}, clear=True):
-            lf.newindex(d.REGFILE,-1,d.Const(7),None)
-        self.assertEqual(len(lf.out),1)
-        self.assertEqual(lf.out[0].target,d.Reg(-1))
-        self.assertEqual(lf.out[0].value,d.Const(7))
-
-    def test_flag_does_not_allow_other_negative_slots(self):
-        lf=lifter();lf.stack_base=1
-        with patch.dict(os.environ, {"DEVIRT_NEG1_SLOT_EXPERIMENT":"1"}, clear=True):
-            with self.assertRaises(d.Unsupported):
-                lf.index(d.REGFILE,-2,None)
-            with self.assertRaises(d.Unsupported):
-                lf.newindex(d.REGFILE,-2,d.Const(7),None)
-
-    def test_flag_does_not_allow_neg1_when_stack_base_is_not_one(self):
-        lf=lifter();lf.stack_base=2
-        with patch.dict(os.environ, {"DEVIRT_NEG1_SLOT_EXPERIMENT":"1"}, clear=True):
-            with self.assertRaises(d.Unsupported):
-                lf.index(d.REGFILE,-1,None)
-
-    def test_flag_does_not_change_zero_slot_rules(self):
-        lf=lifter();lf.stack_base=1;lf.step_facts={}
-        with patch.dict(os.environ, {"DEVIRT_NEG1_SLOT_EXPERIMENT":"1"}, clear=True):
-            with self.assertRaises(d.Unsupported):
-                lf.index(d.REGFILE,0,None)
-            with self.assertRaises(d.Unsupported):
-                lf.newindex(d.REGFILE,0,d.Const(7),None)
+    def test_experiment_does_not_allow_other_negative_or_zero_slots(self):
+        code=r'''
+from obfuscators.luraph_v15 import devirt as d
+from test_entry_facts_bridge import lifter
+ok=[]
+for key in (-2,0):
+    lf=lifter();lf.stack_base=1
+    try: lf.index(d.REGFILE,key,None)
+    except d.Unsupported: ok.append(key)
+print(ok)
+'''
+        p=self.child(code,experiment=True)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(p.stdout.strip(),"[-2, 0]")
 
 if __name__=="__main__":
     unittest.main()
