@@ -69,6 +69,27 @@ class R183RunnerIntegrationTests(unittest.TestCase):
                 got=r.find_source(None,workspace,repo)
             self.assertEqual(got,src.resolve())
 
+    def test_reused_capture_log_requires_baseline_boot_marker(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td)
+            good=q/"good.log"
+            good.write_text('[R183BOOT] {"frame_debug": true, "neg1_experiment": false}\n',encoding="utf-8")
+            boot=r.reused_capture_boot(good)
+            self.assertTrue(boot["frame_debug"])
+            self.assertFalse(boot["neg1_experiment"])
+
+            bad=q/"bad.log"
+            bad.write_text('[R183BOOT] {"frame_debug": true, "neg1_experiment": true}\n',encoding="utf-8")
+            with self.assertRaisesRegex(ValueError,"experiment log"):
+                r.reused_capture_boot(bad)
+
+    def test_reused_capture_log_without_boot_marker_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=pathlib.Path(td)/"capture.log"
+            p.write_text("partial capture without bootstrap marker\n",encoding="utf-8")
+            with self.assertRaisesRegex(ValueError,"frame-debug marker"):
+                r.reused_capture_boot(p)
+
     def test_run_driver_bootstrap_survives_legacy_devirt_cleanup(self):
         with tempfile.TemporaryDirectory() as td:
             q=pathlib.Path(td);probe=q/"_probe";probe.mkdir()

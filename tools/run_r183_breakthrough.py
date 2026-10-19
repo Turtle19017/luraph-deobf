@@ -145,6 +145,16 @@ def boot_record(log_path):
             except json.JSONDecodeError:pass
     return None
 
+def reused_capture_boot(log_path):
+    if not Path(log_path).is_file():
+        raise ValueError(f"reuse capture log not found: {log_path}")
+    boot=boot_record(Path(log_path))
+    if not isinstance(boot,dict) or not boot.get("frame_debug"):
+        raise ValueError(f"R183 bootstrap/frame-debug marker missing from reused log {log_path}")
+    if boot.get("neg1_experiment"):
+        raise ValueError("reuse capture log is an experiment log, not a baseline capture log")
+    return boot
+
 def run_driver(driver,workspace,repo,probe,label,log_path,experiment):
     template=repo/"tools"/"r183_sitecustomize.py"
     if not template.is_file():raise ValueError("missing tools/r183_sitecustomize.py")
@@ -212,6 +222,8 @@ def main():
     ap.add_argument("--driver",type=Path)
     ap.add_argument("--r181f",type=Path);ap.add_argument("--r182c",type=Path)
     ap.add_argument("--baseline-summary",type=Path);ap.add_argument("--source",type=Path)
+    ap.add_argument("--reuse-capture-log",type=Path,
+                    help="analyze an already-preserved R183 capture log instead of rerunning capture")
     ap.add_argument("--capture-label",default="v15_root27_r183v2_exact_operands")
     ap.add_argument("--experiment-label",default="v15_root27_r183v2_neg1_experiment")
     ap.add_argument("--no-experiment",action="store_true")
@@ -228,26 +240,40 @@ def main():
     integration={"repo":str(repo),"workspace":str(workspace),"probe":str(probe),"driver":str(driver),
       "r181f":str(r181f),"r182c":str(r182c),"source":str(source),"baseline_summary":str(baseline),
       "baseline_candidates":[str(x) for x in baseline_candidates],"selected_protos":str(protos),
-      "source_sha256":sha256_file(source),"selected_protos_sha256":sha256_file(protos)}
+      "source_sha256":sha256_file(source),"selected_protos_sha256":sha256_file(protos),
+      "reuse_capture_log":str(a.reuse_capture_log.resolve()) if a.reuse_capture_log else None}
     if a.preflight_only:
         print(json.dumps(integration,indent=2,ensure_ascii=False));return 0
 
-    cap_log=probe/(a.capture_label+".log");cap_proc=probe/(a.capture_label+".process.json")
+    reused=bool(a.reuse_capture_log)
+    cap_log=(a.reuse_capture_log.resolve() if reused else probe/(a.capture_label+".log"))
+    cap_proc=probe/(a.capture_label+".process.json")
     cap_receipt=probe/"v15_root27_exact_sub_operands.r183a.v2.json"
     exp_log=probe/(a.experiment_label+".log");exp_proc=probe/(a.experiment_label+".process.json")
     status_path=probe/"v15_root27_breakthrough.r183.v2.status.json"
     try:
-        refuse([cap_log,cap_proc,cap_receipt,status_path]+([] if a.no_experiment else [exp_log,exp_proc]))
-        cap_exit,cap_boot=run_driver(driver,workspace,repo,probe,a.capture_label,cap_log,False)
-        cap_proc.write_text(json.dumps({"exit":cap_exit,"boot":cap_boot,"label":a.capture_label,
-                                       "log":str(cap_log)},indent=2)+"\n",encoding="utf-8")
-        analyzer=load_analyzer(repo);inputs=diagnostic_files(probe,a.capture_label,cap_log)
+        if reused:
+            cap_boot=reused_capture_boot(cap_log)
+            refuse([cap_proc,cap_receipt,status_path]+([] if a.no_experiment else [exp_log,exp_proc]))
+            cap_exit=None
+            cap_proc.write_text(json.dumps({"exit":None,"boot":cap_boot,"label":a.capture_label,
+                                           "log":str(cap_log),"reused_capture_log":True},indent=2)+"\n",
+                                encoding="utf-8")
+        else:
+            refuse([cap_log,cap_proc,cap_receipt,status_path]+([] if a.no_experiment else [exp_log,exp_proc]))
+            cap_exit,cap_boot=run_driver(driver,workspace,repo,probe,a.capture_label,cap_log,False)
+            cap_proc.write_text(json.dumps({"exit":cap_exit,"boot":cap_boot,"label":a.capture_label,
+                                           "log":str(cap_log),"reused_capture_log":False},indent=2)+"\n",
+                                encoding="utf-8")
+        analyzer=load_analyzer(repo)
+        inputs=([cap_log] if reused else diagnostic_files(probe,a.capture_label,cap_log))
         capture=analyzer.analyze(r181f,baseline,inputs)
         cap_receipt.write_text(json.dumps(capture,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
         diag_gate=bool(capture["interpretation_gate"]["exact_accepted_location_gate_for_diagnostic_experiment"])
         canon_gate=bool(capture["interpretation_gate"]["canonical_composite_identity_gate"])
         status={"schema":"luraph-deobf.r183-breakthrough-run.v2","integration":integration,
           "capture":{"exit":cap_exit,"boot":cap_boot,"label":a.capture_label,"log":str(cap_log),
+                     "reused_capture_log":reused,
                      "diagnostic_inputs":[str(x) for x in inputs],"receipt":str(cap_receipt),
                      "summary":capture["summary"],"diagnostic_gate":diag_gate,
                      "canonical_gate":canon_gate},
@@ -274,7 +300,7 @@ def main():
         print("status:",status_path)
         # Capture exit may be nonzero only after a legacy post-run lock.  The
         # diagnostic gate is based on complete FRAMEFAIL coverage, not exit 0.
-        return 0 if diag_gate else (cap_exit or 2)
+        return 0 if diag_gate else ((cap_exit or 2) if cap_exit is not None else 2)
     except (OSError,ValueError,TypeError,KeyError,json.JSONDecodeError) as exc:
         raise SystemExit(f"FAIL: {exc}") from exc
 

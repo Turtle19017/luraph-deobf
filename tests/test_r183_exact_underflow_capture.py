@@ -50,6 +50,20 @@ class R183AV2Tests(unittest.TestCase):
             self.assertFalse(out["interpretation_gate"]["canonical_composite_identity_gate"])
             self.assertFalse(out["interpretation_gate"]["semantic_change_authorized"])
 
+    def test_anchored_baseline_duplicate_rows_normalize_to_same_seven_locations(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td)
+            bp=baseline(q)
+            obj=json.loads(bp.read_text(encoding="utf-8"))
+            obj["errors"]=obj["errors"]+list(obj["errors"])
+            bp.write_text(json.dumps(obj),encoding="utf-8")
+            rs=[frame(100+i) for i in range(7)]
+            out=r.analyze(receipt(q,True),bp,[log(q,rs)])
+            self.assertTrue(out["interpretation_gate"]["exact_accepted_location_gate_for_diagnostic_experiment"])
+            self.assertEqual(out["accepted_baseline"]["serialized_read_neg1_rows"],14)
+            self.assertEqual(out["accepted_baseline"]["unique_read_neg1_locations"],7)
+            self.assertTrue(all(v==2 for v in out["accepted_baseline"]["read_neg1_location_multiplicity"].values()))
+
     def test_missing_location_closes_diagnostic_gate(self):
         with tempfile.TemporaryDirectory() as td:
             q=pathlib.Path(td);rs=[frame(100+i) for i in range(6)]
@@ -83,6 +97,14 @@ class R183AV2Tests(unittest.TestCase):
             q=pathlib.Path(td);rs=[frame(100+i) for i in range(7)];rs.append(dict(rs[0]))
             out=r.analyze(receipt(q,True),baseline(q),[log(q,rs)])
             self.assertEqual(out["summary"]["unique_matched_records"],7)
+
+    def test_eight_unique_baseline_locations_still_fail_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td);bp=baseline(q);obj=json.loads(bp.read_text(encoding="utf-8"))
+            obj["errors"].append("error(\"devirt: read below the stack VM's frame (register -1) (at 93:999)\")")
+            bp.write_text(json.dumps(obj),encoding="utf-8")
+            with self.assertRaisesRegex(ValueError,"exactly 7 unique"):
+                r.analyze(receipt(q,True),bp,[log(q,[frame(100+i) for i in range(7)])])
 
     def test_baseline_hash_is_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:

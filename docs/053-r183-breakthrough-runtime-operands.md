@@ -73,6 +73,30 @@ The capture pass should still satisfy the baseline driver locks because debug ca
 
 The experimental pass deliberately changes behavior. A legacy driver may therefore exit nonzero after it has generated useful output because its final stats/output assertion still expects the old checkpoint. R183-v2 records that exit and scans the emitted JSON/log artifacts for experimental stats. A nonzero exit is never converted into acceptance.
 
+## Post-restart recovery
+
+If the capture subprocess already produced a preserved baseline-debug log but the
+parent runner was interrupted before it could emit the normal receipt/status,
+do not rerun the expensive capture first. R183-v2 can reuse that exact log:
+
+```powershell
+py -3 .\tools\run_r183_breakthrough.py `
+  --reuse-capture-log .\_probe\v15_root27_r183v2_exact_operands.log
+```
+
+The reused log must contain an `[R183BOOT]` marker proving
+`frame_debug=true` and `neg1_experiment=false`. An experiment log cannot be
+reused as a baseline capture. Reuse mode writes a fresh standard R183A-v2
+receipt/status and, only if the seven-location arithmetic gate opens, proceeds
+to the ordinary in-memory negative-slot experiment.
+
+The accepted baseline summary may serialize the same accepted error more than
+once. R183A-v2 therefore normalizes read/-1 baseline rows by exact
+`(mode,pc)` identity after the checkpoint/source/output hash gates have
+passed. It still requires **exactly seven unique locations**. The raw serialized
+row count and per-location multiplicity are preserved in the receipt. An eighth
+unique location still fails closed.
+
 ## Commands
 
 After pulling the R183-v2 integration commit:
@@ -85,7 +109,7 @@ py -3 -m unittest discover -s tests -p "test_r183_neg1_slot_experiment.py" -v
 py -3 -m unittest discover -s tests -p "test_r183_runner_integration.py" -v
 ```
 
-These are 8 analyzer tests, 5 bootstrap/experiment tests, and 5 runner-integration tests.
+These are 10 analyzer tests, 5 bootstrap/experiment tests, and 8 runner-integration tests.
 
 Before spending time on the long run, resolve only integration:
 

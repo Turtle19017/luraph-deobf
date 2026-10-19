@@ -47,7 +47,8 @@ def require_r181f(obj):
 
 def require_baseline(obj):
     if not isinstance(obj,dict): raise ValueError("baseline summary is not an object")
-    st=obj.get("stats") or {}
+    st=obj.get("stats")
+    if not isinstance(st,dict): raise ValueError("baseline stats is not an object")
     got=(st.get("functions"),st.get("errors"),st.get("fallbacks"),obj.get("requests"))
     if got!=(78,64,0,594): raise ValueError(f"baseline checkpoint mismatch: {got}")
     if obj.get("source_sha256")!=SOURCE_SHA: raise ValueError("baseline source SHA mismatch")
@@ -56,10 +57,15 @@ def require_baseline(obj):
     for err in obj.get("errors",[]):
         m=ERR_RE.search(str(err))
         if m: locs.append((int(m.group("mode")),int(m.group("pc"))))
-    uniq=sorted(set(locs))
-    if len(locs)!=7 or len(uniq)!=7:
+    counts=Counter(locs)
+    uniq=sorted(counts)
+    if len(uniq)!=7:
         raise ValueError(f"baseline must contain exactly 7 unique read/-1 locations, got {len(locs)}/{len(uniq)}")
-    return uniq
+    # Duplicate serialization of the same accepted error does not create a
+    # second site.  Preserve multiplicity for audit and require every duplicate
+    # to normalize to one of the same seven exact (mode,pc) identities.
+    multiplicity={f"{m}:{p}":counts[(m,p)] for m,p in uniq}
+    return uniq,multiplicity
 
 def numeric(v):
     if not isinstance(v,dict): return None
@@ -107,7 +113,7 @@ def dedupe(rows):
 
 def analyze(r181f_path,baseline_path,logs):
     r181f=load(r181f_path); sites,canonical_mp=require_r181f(r181f)
-    baseline=load(baseline_path); baseline_locs=require_baseline(baseline)
+    baseline=load(baseline_path); baseline_locs,baseline_multiplicity=require_baseline(baseline)
     raw=parse_framefails(logs)
     by_loc=defaultdict(list);extra=[]
     for x in raw:
@@ -152,7 +158,10 @@ def analyze(r181f_path,baseline_path,logs):
       "schema":SCHEMA,"source_r181f":str(r181f_path),"source_baseline_summary":str(baseline_path),
       "logs":[str(x) for x in logs],"checkpoint":r181f["checkpoint"],
       "accepted_baseline":{"source_sha256":SOURCE_SHA,"output_sha256":OUTPUT_SHA,
-                           "read_neg1_locations":[{"mode":m,"pc":p} for m,p in baseline_locs]},
+                           "read_neg1_locations":[{"mode":m,"pc":p} for m,p in baseline_locs],
+                           "read_neg1_location_multiplicity":baseline_multiplicity,
+                           "serialized_read_neg1_rows":sum(baseline_multiplicity.values()),
+                           "unique_read_neg1_locations":len(baseline_locs)},
       "summary":{"cohort_sites":7,"sites_with_matched_framefail":covered,
                  "sites_all_exact_sub_neg1":exact,"sites_with_nonexact_records":conflicts,
                  "extra_read_neg1_framefails":len(extra),
