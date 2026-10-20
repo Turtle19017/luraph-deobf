@@ -49,3 +49,31 @@ _probe/v15_root27_r183b_neg1_stats.receipt.json
 A legacy driver may still exit nonzero because its final assertion expects the accepted old checkpoint. That does not invalidate an already-flushed `[R183STATS]` record. The R183B receipt records the driver exit code separately and leaves `accepted_checkpoint_replaced=false`.
 
 The decisive result is `selected_collect_stats`, especially `functions`, `errors`, `fallbacks`, and `requests`. Together with the already-observed 78 functions / 642 walks, this determines whether suppressing the exact -1 cohort merely converts those failures into other failures/requests or actually improves the error/request profile.
+
+
+## Windows checkout normalization gate
+
+R183B does not compute a Git blob id from raw working-tree bytes. On Windows,
+a valid checkout can contain CRLF while the Git object stores normalized LF,
+so hashing raw bytes would reject an unchanged tracked file.
+
+The engine gate now asks Git for the object identity directly:
+
+```text
+git rev-parse HEAD:core/obfuscators/luraph_v15/devirt.py
+```
+
+and requires that exact blob to equal
+`8d6d9158bcff3b086dfb9812cf4bbf55c9c54572`.
+
+It separately requires both the staged and working-tree views of that path to
+be clean according to Git itself:
+
+```text
+git diff --cached --quiet -- <path>
+git diff --quiet -- <path>
+```
+
+Those comparisons honor Git's text filters, so filter-equivalent CRLF/LF
+checkouts pass while a real content change still fails closed. No line-ending
+rewrite or gate bypass is performed.

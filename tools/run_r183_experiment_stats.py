@@ -7,7 +7,7 @@ return of devirt.collect_requests via the R183 sitecustomize hook, before any
 legacy post-run assertion can discard them.
 """
 from __future__ import annotations
-import argparse, hashlib, importlib.util, json, sys
+import argparse, importlib.util, json, subprocess, sys
 from pathlib import Path
 
 SCHEMA="luraph-deobf.r183b-neg1-experiment-stats.v1"
@@ -19,9 +19,39 @@ BASELINE=(78,64,0,594)
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
-def git_blob_sha1(path):
-    data=Path(path).read_bytes()
-    return hashlib.sha1(b"blob "+str(len(data)).encode("ascii")+b"\0"+data).hexdigest()
+def _git(repo,*args,check=True):
+    p=subprocess.run(["git","-C",str(repo),*args],text=True,capture_output=True)
+    if check and p.returncode!=0:
+        msg=(p.stderr or p.stdout or "").strip()
+        raise ValueError(f"git {' '.join(args)} failed ({p.returncode}): {msg}")
+    return p
+
+def git_tracked_blob_gate(repo,path,expected_blob):
+    repo=Path(repo).resolve(); path=Path(path).resolve()
+    try:
+        rel=path.relative_to(repo).as_posix()
+    except ValueError as exc:
+        raise ValueError(f"engine path is outside repo: {path}") from exc
+    head_blob=_git(repo,"rev-parse",f"HEAD:{rel}").stdout.strip()
+    if head_blob!=expected_blob:
+        raise ValueError(f"engine HEAD blob mismatch: {head_blob}")
+    staged=_git(repo,"diff","--cached","--quiet","--",rel,check=False)
+    if staged.returncode not in (0,1):
+        raise ValueError(f"git staged diff failed ({staged.returncode})")
+    if staged.returncode==1:
+        raise ValueError("engine has staged changes relative to HEAD")
+    worktree=_git(repo,"diff","--quiet","--",rel,check=False)
+    if worktree.returncode not in (0,1):
+        raise ValueError(f"git worktree diff failed ({worktree.returncode})")
+    if worktree.returncode==1:
+        raise ValueError("engine has worktree changes after Git filters")
+    return {
+        "path":str(path),
+        "relative_path":rel,
+        "head_blob":head_blob,
+        "staged_clean":True,
+        "worktree_clean_after_filters":True,
+    }
 
 def load_runner(repo):
     p=repo/"tools"/"run_r183_breakthrough.py"
@@ -107,9 +137,8 @@ def main():
         r183a=require_r183a(receipt)
 
         engine=repo/"core"/"obfuscators"/"luraph_v15"/"devirt.py"
-        engine_blob=git_blob_sha1(engine)
-        if engine_blob!=ENGINE_BLOB_SHA1:
-            raise ValueError(f"engine blob mismatch: {engine_blob}")
+        engine_gate=git_tracked_blob_gate(repo,engine,ENGINE_BLOB_SHA1)
+        engine_blob=engine_gate["head_blob"]
 
         source=runner.find_source(None,workspace,repo)
         if runner.sha256_file(source)!=SOURCE_SHA:
@@ -132,6 +161,7 @@ def main():
             "label":a.label,
             "driver_exit":exit_code,
             "engine_blob_sha1":engine_blob,
+            "engine_git_gate":engine_gate,
             "source":{"path":str(source),"sha256":SOURCE_SHA},
             "protos":{"path":str(protos),"sha256":PROTO_SHA},
             "r183a_receipt":str(receipt),

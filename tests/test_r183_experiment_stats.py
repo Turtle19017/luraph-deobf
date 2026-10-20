@@ -1,4 +1,4 @@
-import importlib.util,json,pathlib,tempfile,unittest
+import importlib.util,json,pathlib,subprocess,tempfile,unittest
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 P=ROOT/"tools"/"run_r183_experiment_stats.py"
@@ -69,10 +69,39 @@ class R183BTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"integer errors"):
             r.choose_collect_stats(rows)
 
-    def test_git_blob_sha1_matches_git_blob_formula(self):
+    def test_git_gate_accepts_filter_equivalent_crlf_checkout(self):
         with tempfile.TemporaryDirectory() as td:
-            p=pathlib.Path(td)/"x";p.write_bytes(b"abc")
-            self.assertEqual(r.git_blob_sha1(p),"f2ba8f84ab5c1bce84a7b441cb1959cfc7093b7f")
+            q=pathlib.Path(td)
+            subprocess.run(["git","init"],cwd=q,check=True,capture_output=True)
+            subprocess.run(["git","config","user.email","r183@test.invalid"],cwd=q,check=True)
+            subprocess.run(["git","config","user.name","R183 Test"],cwd=q,check=True)
+            (q/".gitattributes").write_text("*.py text\n",encoding="utf-8")
+            p=q/"engine.py";p.write_bytes(b"line1\nline2\n")
+            subprocess.run(["git","add",".gitattributes","engine.py"],cwd=q,check=True)
+            subprocess.run(["git","commit","-m","base"],cwd=q,check=True,capture_output=True)
+            expected=subprocess.run(
+                ["git","rev-parse","HEAD:engine.py"],cwd=q,check=True,
+                text=True,capture_output=True).stdout.strip()
+            p.write_bytes(b"line1\r\nline2\r\n")
+            gate=r.git_tracked_blob_gate(q,p,expected)
+            self.assertEqual(gate["head_blob"],expected)
+            self.assertTrue(gate["worktree_clean_after_filters"])
+
+    def test_git_gate_rejects_real_worktree_change(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td)
+            subprocess.run(["git","init"],cwd=q,check=True,capture_output=True)
+            subprocess.run(["git","config","user.email","r183@test.invalid"],cwd=q,check=True)
+            subprocess.run(["git","config","user.name","R183 Test"],cwd=q,check=True)
+            p=q/"engine.py";p.write_text("a\n",encoding="utf-8")
+            subprocess.run(["git","add","engine.py"],cwd=q,check=True)
+            subprocess.run(["git","commit","-m","base"],cwd=q,check=True,capture_output=True)
+            expected=subprocess.run(
+                ["git","rev-parse","HEAD:engine.py"],cwd=q,check=True,
+                text=True,capture_output=True).stdout.strip()
+            p.write_text("b\n",encoding="utf-8")
+            with self.assertRaisesRegex(ValueError,"worktree changes"):
+                r.git_tracked_blob_gate(q,p,expected)
 
 if __name__=="__main__":
     unittest.main()
