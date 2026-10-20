@@ -155,7 +155,7 @@ def reused_capture_boot(log_path):
         raise ValueError("reuse capture log is an experiment log, not a baseline capture log")
     return boot
 
-def run_driver(driver,workspace,repo,probe,label,log_path,experiment):
+def run_driver(driver,workspace,repo,probe,label,log_path,experiment,stats_capture=False):
     template=repo/"tools"/"r183_sitecustomize.py"
     if not template.is_file():raise ValueError("missing tools/r183_sitecustomize.py")
     with tempfile.TemporaryDirectory(prefix="r183site_",dir=str(probe)) as td:
@@ -165,6 +165,8 @@ def run_driver(driver,workspace,repo,probe,label,log_path,experiment):
         env["R183_FRAME_DEBUG"]="1"
         if experiment:env["R183_NEG1_SLOT_EXPERIMENT"]="1"
         else:env.pop("R183_NEG1_SLOT_EXPERIMENT",None)
+        if stats_capture:env["R183_STATS_CAPTURE"]="1"
+        else:env.pop("R183_STATS_CAPTURE",None)
         old=env.get("PYTHONPATH","")
         env["PYTHONPATH"]=os.pathsep.join([str(site),str(repo/"core")]+([old] if old else []))
         with log_path.open("xb") as f:
@@ -177,6 +179,8 @@ def run_driver(driver,workspace,repo,probe,label,log_path,experiment):
         raise ValueError(f"R183 bootstrap experiment marker mismatch in {log_path}")
     if experiment and not boot.get("neg1_patch_installed"):
         raise ValueError("R183 bootstrap did not install in-memory neg1 patch")
+    if stats_capture and (not boot.get("stats_capture") or not boot.get("stats_patch_installed")):
+        raise ValueError("R183 bootstrap did not install stats capture")
     return p.returncode,boot
 
 def walk_dicts(v,path="$"):

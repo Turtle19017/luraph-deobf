@@ -90,6 +90,19 @@ class R183RunnerIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"frame-debug marker"):
                 r.reused_capture_boot(p)
 
+    def test_run_driver_stats_capture_installs_stats_patch(self):
+        with tempfile.TemporaryDirectory() as td:
+            q=pathlib.Path(td);probe=q/"_probe";probe.mkdir()
+            driver=probe/"driver.py"
+            driver.write_text("print('ok')\n",encoding="utf-8")
+            log=probe/"stats.log"
+            code,boot=r.run_driver(driver,q,ROOT,probe,"label",log,True,stats_capture=True)
+            self.assertEqual(code,0)
+            self.assertTrue(boot["neg1_experiment"])
+            self.assertTrue(boot["neg1_patch_installed"])
+            self.assertTrue(boot["stats_capture"])
+            self.assertTrue(boot["stats_patch_installed"])
+
     def test_run_driver_bootstrap_survives_legacy_devirt_cleanup(self):
         with tempfile.TemporaryDirectory() as td:
             q=pathlib.Path(td);probe=q/"_probe";probe.mkdir()

@@ -81,11 +81,58 @@ def _install_neg1_patch():
     d.ProtoLifter._r183_neg1_patched=True
     return True
 
+def _emit_stats(kind, stats, requests):
+    if not _truthy("R183_STATS_CAPTURE"):
+        return
+    if not isinstance(stats,dict):
+        return
+    try:
+        req_count=len(requests)
+    except Exception:
+        req_count=None
+    payload={
+        "kind":kind,
+        "functions":stats.get("functions"),
+        "errors":stats.get("errors"),
+        "fallbacks":stats.get("fallbacks"),
+        "walked":stats.get("walked"),
+        "fetched":stats.get("fetched"),
+        "requests":req_count,
+    }
+    try:
+        print("[R183STATS] "+json.dumps(payload,sort_keys=True),file=sys.stderr,flush=True)
+    except Exception:
+        pass
+
+def _install_stats_capture():
+    if not _truthy("R183_STATS_CAPTURE"):
+        return False
+    from obfuscators.luraph_v15 import devirt as d
+    if getattr(d,"_r183_stats_patched",False):
+        return True
+    old_collect=d.collect_requests
+    old_lift=d.lift_program
+    def collect_requests(*a,**kw):
+        res=old_collect(*a,**kw)
+        try:_emit_stats("collect_requests",res[0],res[1])
+        except Exception:pass
+        return res
+    def lift_program(*a,**kw):
+        res=old_lift(*a,**kw)
+        try:_emit_stats("lift_program",res[1],res[2])
+        except Exception:pass
+        return res
+    d.collect_requests=collect_requests
+    d.lift_program=lift_program
+    d._r183_stats_patched=True
+    return True
+
 def install():
     global _INSTALLED
     if _INSTALLED:return
     protected=_install_env_protection()
     patched=_install_neg1_patch()
+    stats_patched=_install_stats_capture()
     _INSTALLED=True
     try:
         print("[R183BOOT] "+json.dumps({
@@ -93,6 +140,8 @@ def install():
             "neg1_experiment":_truthy("R183_NEG1_SLOT_EXPERIMENT"),
             "protected":sorted(protected),
             "neg1_patch_installed":patched,
+            "stats_capture":_truthy("R183_STATS_CAPTURE"),
+            "stats_patch_installed":stats_patched,
         },sort_keys=True),file=sys.stderr)
     except Exception:
         pass
